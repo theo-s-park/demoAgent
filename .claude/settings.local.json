@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(gh issue:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(env)",
+      "Bash(gh:*)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git remote *)",
+      "Bash(git pull *)",
+      "Bash(git branch *)"
+    ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "github@claude-plugins-official": false,
+    "feature-dev@claude-plugins-official": true
+  },
+  "autoUpdatesChannel": "latest"
+}
