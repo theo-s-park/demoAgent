@@ -18,7 +18,9 @@ jobs:
           java-version: '25'
 
       - name: Build JAR
-        run: ./gradlew build -x test
+        run: |
+          chmod +x gradlew
+          ./gradlew build -x test
 
       - name: Upload JAR
         uses: actions/upload-artifact@v4
