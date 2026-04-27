@@ -10,6 +10,8 @@ import theo.demoagent.dto.LlmResponse;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -23,18 +25,19 @@ public class AgentService {
     private final OpenAiClient openAiClient;
     private final ToolClient toolClient;
     private final ObjectMapper objectMapper;
-    private final String systemPrompt;
+
+    @org.springframework.beans.factory.annotation.Value("${user.dir}")
+    private String baseDir;
 
     public AgentService(OpenAiClient openAiClient, ToolClient toolClient) {
         this.openAiClient = openAiClient;
         this.toolClient = toolClient;
         this.objectMapper = new ObjectMapper();
-        this.systemPrompt = loadSystemPrompt();
     }
 
     public void run(String question, Consumer<AgentEvent> emit) {
         List<Map<String, String>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", systemPrompt));
+        messages.add(Map.of("role", "system", "content", loadSystemPrompt()));
         messages.add(Map.of("role", "user", "content", question));
 
         for (int i = 0; i < MAX_ITERATIONS; i++) {
@@ -93,7 +96,15 @@ public class AgentService {
         return objectMapper.readValue(json, LlmResponse.class);
     }
 
-    private static String loadSystemPrompt() {
+    private String loadSystemPrompt() {
+        if (baseDir != null) {
+            Path filePath = Path.of(baseDir, "src/main/resources/system-prompt.txt");
+            if (Files.exists(filePath)) {
+                try {
+                    return Files.readString(filePath);
+                } catch (IOException ignored) {}
+            }
+        }
         try {
             ClassPathResource resource = new ClassPathResource("system-prompt.txt");
             return new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
