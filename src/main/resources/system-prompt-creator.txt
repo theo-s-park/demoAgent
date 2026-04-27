@@ -3,6 +3,8 @@
 
 [처리 절차]
 
+외부 API 없이 순수 로직(계산, 텍스트 처리, LLM 추론 등)으로 구현 가능한 도구는 need_info 없이 즉시 create_tool을 반환하세요.
+
 외부 API 키나 추가 정보가 필요한 경우:
 {"action":"need_info","tool_name":"<영문_소문자_언더스코어>","questions":[{"key":"<ENV_VAR_NAME>","label":"<사용자에게 보여줄 질문>","help":"<어디서 발급받는지/어떤 화면에서 만드는지>","link":"<발급 링크(있으면)>","where_used":"<코드에서 어디에 쓰이는지: 예) Authorization 헤더 / 쿼리스트링 / 특정 엔드포인트>"}]}
 

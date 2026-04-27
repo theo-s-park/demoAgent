@@ -5,316 +5,347 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>demoAgent</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root{
-      --bg0:#0b1020;
-      --bg1:#0f1630;
-      --card:#0f1833cc;
-      --card2:#0b1227cc;
-      --line:rgba(255,255,255,.10);
-      --line2:rgba(255,255,255,.14);
-      --text:#eaf0ff;
-      --muted:rgba(234,240,255,.68);
-      --accent:#6ee7ff;
-      --accent2:#a78bfa;
-      --good:#56f0a6;
-      --bad:#ff5f7a;
-      --warn:#ffd36e;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --border-focus: #6366f1;
+      --text: #1e293b;
+      --muted: #64748b;
+      --accent: #6366f1;
+      --accent-soft: #eef2ff;
+      --good: #22c55e;
+      --bad: #ef4444;
+      --warn: #f59e0b;
+      --thought-bg: #faf5ff;
+      --thought-border: #d8b4fe;
+      --thought-text: #7c3aed;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,.08);
     }
-    body{
+    body {
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background:
-        radial-gradient(1100px 500px at 12% 18%, rgba(110,231,255,.20), transparent 60%),
-        radial-gradient(900px 540px at 80% 10%, rgba(167,139,250,.22), transparent 55%),
-        radial-gradient(900px 520px at 60% 82%, rgba(86,240,166,.14), transparent 60%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
-      color:var(--text);
-      min-height:100vh;
-      display:flex;
-      align-items:stretch;
-      padding:24px;
-      gap:16px;
-    }
-    .app-title{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      padding:14px 14px 12px;
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-      backdrop-filter: blur(10px);
-    }
-    h1{
-      font-size: 1.05rem;
-      letter-spacing:.02em;
+      background: var(--bg);
       color: var(--text);
-      display:flex;
-      align-items:center;
-      gap:10px;
+      min-height: 100vh;
+      padding: 24px;
     }
-    .badge{
-      font-family:var(--mono);
-      font-size:.72rem;
-      padding:4px 8px;
-      border-radius:999px;
-      border:1px solid var(--line2);
-      color:var(--muted);
-      background:rgba(255,255,255,.04);
-    }
-    .subtitle { color: var(--muted); font-size: 0.88rem; line-height:1.35; }
 
-    .layout{
-      width:100%;
-      display:grid;
-      grid-template-columns: 320px minmax(0, 1fr);
-      gap:16px;
-      align-items: start;
-      max-width: 1180px;
+    /* ── Layout ── */
+    .layout {
+      max-width: 1100px;
       margin: 0 auto;
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
     }
-    .tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap:wrap; }
-    .tab {
-      padding: 10px 14px;
-      border-radius: 12px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.04);
-      cursor: pointer;
-      font-size: 0.9rem;
-      color: var(--muted);
-      user-select:none;
-    }
-    .tab.active {
-      background: linear-gradient(180deg, rgba(110,231,255,.12), rgba(167,139,250,.10));
-      color: var(--text);
-      border-color: rgba(110,231,255,.26);
-      font-weight: 650;
+    .sidebar {
+      position: sticky;
+      top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
+    /* ── Card ── */
     .card {
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-      border-radius: 16px;
-      border:1px solid var(--line);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-      padding: 18px;
-      width: 100%;
-      backdrop-filter: blur(10px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    /* ── App header ── */
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .app-header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -.01em;
+    }
+    .chip {
+      font-family: var(--mono);
+      font-size: .70rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+      border: 1px solid #c7d2fe;
+    }
+
+    /* ── Section label ── */
+    .label {
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .hint { font-size: .82rem; color: var(--muted); line-height: 1.4; margin-bottom: 10px; }
+
+    /* ── Inputs ── */
+    .input-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    input[type="text"] {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: .95rem;
+      outline: none;
+      background: var(--surface);
+      color: var(--text);
+      transition: border-color .15s;
+    }
+    input[type="text"]::placeholder { color: #94a3b8; }
+    input[type="text"]:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+
+    button {
+      padding: 10px 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      white-space: nowrap;
+    }
+    button:hover { background: #4f46e5; }
+    button:active { transform: scale(.98); }
+    button:disabled { background: #a5b4fc; cursor: not-allowed; transform: none; }
+    button.ghost {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.ghost:hover { background: var(--bg); }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .tab {
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: .88rem;
+      color: var(--muted);
+      font-weight: 500;
+      user-select: none;
+      transition: all .15s;
+    }
+    .tab:hover { border-color: #c7d2fe; color: var(--accent); }
+    .tab.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: #c7d2fe;
+      font-weight: 700;
     }
     .panel { display: none; }
     .panel.active { display: block; }
 
-    .input-row { display: flex; gap: 8px; margin-bottom: 20px; }
-    input[type="text"] {
-      flex: 1;
-      padding: 12px 14px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      font-size: 0.98rem;
-      outline: none;
-      background: rgba(0,0,0,.18);
-      color: var(--text);
-    }
-    input[type="text"]::placeholder{ color: rgba(234,240,255,.45); }
-    input[type="text"]:focus { border-color: rgba(110,231,255,.55); box-shadow: 0 0 0 3px rgba(110,231,255,.12); }
-    button {
-      padding: 11px 16px;
-      background: linear-gradient(135deg, rgba(110,231,255,.95), rgba(167,139,250,.92));
-      color: rgba(8,12,24,.92);
-      border: none;
-      border-radius: 12px;
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: transform .12s ease, filter .12s ease;
-      white-space: nowrap;
-    }
-    button:hover { transform: translateY(-1px); filter: brightness(1.03); }
-    button:disabled { filter: grayscale(.25); opacity:.6; cursor: not-allowed; transform:none; }
-    button.secondary { background: rgba(255,255,255,.08); color: var(--text); border:1px solid var(--line); }
-    button.secondary:hover { filter:none; }
-
-    .section-label {
-      font-size: 0.72rem; font-weight: 700; color: rgba(234,240,255,.60);
-      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;
-    }
+    /* ── Log box ── */
     .log-box {
-      background: rgba(0,0,0,.18); border: 1px solid var(--line); border-radius: 14px;
-      padding: 12px; min-height: 80px; margin-bottom: 20px;
-      font-size: 0.9rem; color: rgba(234,240,255,.88);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      min-height: 80px;
+      margin-bottom: 16px;
+      font-size: .875rem;
+      background: var(--bg);
     }
-    .step-entry { padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.06); display:flex; align-items:flex-start; gap:10px; }
-    .step-entry:last-child { border-bottom: none; }
-    .step-icon { color: var(--accent); flex-shrink: 0; }
+    .log-placeholder { color: #94a3b8; font-size: .875rem; }
 
+    .step-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      line-height: 1.4;
+    }
+    .step-entry:last-child { border-bottom: none; }
+    .step-icon { color: var(--accent); flex-shrink: 0; font-size: .9rem; }
+    .step-text { flex: 1; color: var(--text); }
+    .step-badge {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--muted);
+      white-space: nowrap;
+      margin-left: auto;
+      padding-left: 8px;
+    }
+
+    /* ── Thought entry ── */
+    .thought-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      line-height: 1.4;
+    }
+    .thought-entry:last-child { border-bottom: none; }
+    .thought-icon { flex-shrink: 0; font-size: .9rem; }
+    .thought-text {
+      flex: 1;
+      color: var(--thought-text);
+      font-style: italic;
+      font-size: .875rem;
+    }
+
+    /* ── Answer / Error boxes ── */
     .answer-box {
-      background: rgba(110,231,255,.10); border: 1px solid rgba(110,231,255,.22); border-radius: 14px;
-      padding: 14px 14px; font-size: 0.98rem; color: rgba(234,240,255,.96); min-height: 60px;
-      margin-bottom: 12px; white-space: pre-wrap; display: none;
+      background: var(--accent-soft);
+      border: 1px solid #c7d2fe;
+      border-radius: var(--radius);
+      padding: 14px;
+      font-size: .95rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      display: none;
+      margin-bottom: 10px;
     }
     .error-box {
-      background: rgba(255,95,122,.10); border: 1px solid rgba(255,95,122,.26); border-radius: 14px;
-      padding: 12px 14px; font-size: 0.92rem; color: rgba(255,220,227,.96); display: none;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      font-size: .9rem;
+      color: #dc2626;
+      display: none;
     }
     .form-box {
-      background: rgba(255,211,110,.10); border: 1px solid rgba(255,211,110,.28); border-radius: 14px;
-      padding: 16px; margin-bottom: 16px; display: none;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+      display: none;
     }
-    .form-box label { display: block; margin-bottom: 4px; font-size: 0.9rem; color: rgba(234,240,255,.92); font-weight: 650; }
+    .form-box label { display: block; margin-bottom: 4px; font-size: .88rem; font-weight: 600; }
     .form-box input {
-      width: 100%; padding: 10px 12px; border: 1px solid var(--line);
-      border-radius: 12px; font-size: 0.92rem; margin-bottom: 12px;
-      background: rgba(0,0,0,.18); color: var(--text);
+      width: 100%; padding: 9px 11px;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      font-size: .9rem; margin-bottom: 10px;
+      background: var(--surface); color: var(--text);
+      outline: none;
     }
+    .form-box input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
     .form-actions { display: flex; gap: 8px; }
 
+    /* ── Spinner ── */
     .spinner {
-      display: inline-block; width: 14px; height: 14px;
-      border: 2px solid rgba(110,231,255,.95); border-top-color: transparent;
-      border-radius: 50%; animation: spin 0.7s linear infinite;
+      display: inline-block; width: 13px; height: 13px;
+      border: 2px solid var(--accent); border-top-color: transparent;
+      border-radius: 50%; animation: spin .7s linear infinite;
       vertical-align: middle; margin-right: 6px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── tools panel ───────────────────────────────────────────── */
-    .sidebar{
-      position: sticky;
-      top: 18px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      min-height: 240px;
-    }
-    .sidebar .card{ padding:14px; }
-    .side-actions{ display:flex; gap:8px; }
-    .tool-list{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
-    .tool-item{
-      border:1px solid var(--line);
-      border-radius: 14px;
-      padding: 10px 10px;
-      background: rgba(0,0,0,.16);
-      cursor:pointer;
-      transition: transform .12s ease, border-color .12s ease;
-    }
-    .tool-item:hover{ transform: translateY(-1px); border-color: rgba(110,231,255,.26); }
-    .tool-item.active{ border-color: rgba(167,139,250,.34); box-shadow: 0 0 0 3px rgba(167,139,250,.10); }
-    .tool-name{ font-weight: 800; font-size: .95rem; }
-    .tool-meta{ font-family: var(--mono); font-size: .78rem; color: rgba(234,240,255,.62); margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .pill{
-      display:inline-flex; align-items:center; gap:6px;
-      font-family: var(--mono);
-      font-size:.74rem;
-      padding:4px 8px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.04);
-      color: rgba(234,240,255,.72);
-    }
-    .dot{ width:8px; height:8px; border-radius:999px; background: rgba(255,255,255,.25); display:inline-block; }
-    .dot.good{ background: var(--good); }
-    .dot.bad{ background: var(--bad); }
-    .dot.warn{ background: var(--warn); }
-    pre.prompt{
-      font-family: var(--mono);
-      font-size: .78rem;
-      line-height:1.4;
-      white-space: pre;
-      background: rgba(0,0,0,.18);
-      border:1px solid var(--line);
-      border-radius: 14px;
-      padding: 12px;
-      max-height: 220px;
-      overflow:auto;
-      color: rgba(234,240,255,.92);
-    }
-    .prompt-grid{
-      display:grid;
-      gap:10px;
-    }
-    .prompt-title{
-      font-weight:900;
-      font-size:.98rem;
-      letter-spacing:.01em;
-    }
-    .kv{
-      display:grid;
-      grid-template-columns: 88px minmax(0, 1fr);
-      gap:10px;
-      align-items:start;
-      padding:10px 10px;
-      border:1px solid var(--line);
-      border-radius: 14px;
-      background: rgba(0,0,0,.14);
-    }
-    #tool-prompt.raw-open .kv{ display:none; }
-    #tool-prompt.raw-open .prompt-title{ display:none; }
-    #tool-prompt.raw-open .pill{ display:none; }
-    .k{
-      font-family: var(--mono);
-      font-size:.76rem;
-      color: rgba(234,240,255,.62);
-      text-transform: uppercase;
-      letter-spacing:.06em;
-      padding-top:2px;
-    }
-    .v{
-      font-family: var(--mono);
-      font-size:.82rem;
-      color: rgba(234,240,255,.95);
-      white-space: normal;
-      word-break: break-word;
-      line-height:1.45;
-    }
-    details.raw{
-      border:1px solid var(--line);
-      border-radius: 14px;
-      background: rgba(0,0,0,.10);
+    /* ── Tool list ── */
+    .tool-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+    .tool-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       padding: 10px;
+      background: var(--surface);
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
     }
-    details.raw > summary{
-      cursor:pointer;
-      user-select:none;
-      color: rgba(234,240,255,.72);
-      font-weight:800;
-      font-size:.86rem;
-      list-style:none;
-    }
-    details.raw > summary::-webkit-details-marker{ display:none; }
-    .muted{ color: rgba(234,240,255,.60); font-size:.86rem; line-height:1.35; }
+    .tool-item:hover { border-color: #c7d2fe; }
+    .tool-item.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
+    .tool-name { font-weight: 700; font-size: .9rem; }
+    .tool-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 
-    @media (max-width: 980px){
-      body{ padding: 18px; }
-      .layout{ grid-template-columns: 1fr; }
-      .sidebar{ position: static; }
+    /* ── Pills / status ── */
+    .pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: var(--mono); font-size: .72rem; padding: 3px 8px;
+      border-radius: 999px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--muted);
+    }
+    .dot { width: 7px; height: 7px; border-radius: 999px; background: #cbd5e1; display: inline-block; }
+    .dot.good { background: var(--good); }
+    .dot.bad  { background: var(--bad); }
+    .dot.warn { background: var(--warn); }
+
+    /* ── Prompt detail ── */
+    .kv {
+      display: grid; grid-template-columns: 72px minmax(0,1fr);
+      gap: 8px; align-items: start;
+      padding: 8px 10px;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--bg);
+    }
+    .k { font-family: var(--mono); font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding-top: 2px; }
+    .v { font-family: var(--mono); font-size: .8rem; color: var(--text); word-break: break-word; line-height: 1.45; }
+    .prompt-grid { display: flex; flex-direction: column; gap: 8px; }
+    .prompt-title { font-weight: 700; font-size: .95rem; }
+
+    details.raw { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); padding: 8px 10px; }
+    details.raw > summary { cursor: pointer; user-select: none; color: var(--muted); font-weight: 700; font-size: .82rem; list-style: none; }
+    details.raw > summary::-webkit-details-marker { display: none; }
+    pre.prompt {
+      font-family: var(--mono); font-size: .78rem; line-height: 1.45;
+      white-space: pre; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px; max-height: 200px; overflow: auto;
+      color: var(--text); margin-top: 8px;
+    }
+
+    textarea {
+      width: 100%; min-height: 200px; resize: vertical;
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); padding: 10px 12px;
+      font-family: var(--mono); font-size: .8rem; line-height: 1.45; outline: none;
+    }
+    textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .tools-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+    @media (max-width: 860px) {
+      body { padding: 16px; }
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
     }
   </style>
 </head>
 <body>
   <div class="layout">
+    <!-- ── Sidebar ── -->
     <div class="sidebar">
-      <div class="app-title">
-        <h1>demoAgent <span class="badge">tool-driven</span></h1>
-        <p class="subtitle">도구 목록/상태를 보고, 에이전트가 호출하는 과정을 실시간으로 추적합니다.</p>
+      <div class="app-header">
+        <h1>demoAgent</h1>
+        <span class="chip">tool-driven</span>
       </div>
 
       <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <div>
-            <div class="section-label" style="margin-bottom:6px;">Tools</div>
-            <div class="muted">system-prompt에서 파싱한 도구 목록입니다.</div>
-          </div>
+        <div class="label">Tools</div>
+        <div class="hint">system-prompt에서 파싱한 도구 목록입니다.</div>
+        <div class="btn-row">
+          <button class="ghost" onclick="refreshTools()">목록 새로고침</button>
         </div>
-        <div class="side-actions" style="margin-top:12px;">
-          <button class="secondary" onclick="refreshTools()">목록 새로고침</button>
-        </div>
-        <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <span class="muted" style="font-size:.82rem;">자동 상태 확인</span>
-          <label class="pill" style="cursor:pointer;">
-            <input id="auto-health" type="checkbox" style="accent-color: var(--accent);"/>
-            <span>polling</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:.82rem;color:var(--muted);">자동 상태 확인</span>
+          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:.82rem;color:var(--muted);">
+            <input id="auto-health" type="checkbox" style="accent-color:var(--accent);"/>
+            polling
           </label>
         </div>
-        <div id="tools-summary" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <div class="tools-meta">
           <span class="pill"><span class="dot"></span><span id="tools-count">-</span> tools</span>
           <span class="pill"><span class="dot warn"></span><span id="tools-health">?</span> health</span>
         </div>
@@ -322,25 +353,26 @@
       </div>
 
       <div class="card">
-        <div class="section-label">Prompt entry</div>
-        <div class="muted" style="margin-bottom:10px;">선택한 도구의 프롬프트 블록(URL/인자/설명)을 확인할 수 있어요. (편집하려면 아래 System prompt에서 수정)</div>
+        <div class="label">Prompt entry</div>
+        <div class="hint">선택한 도구의 URL/인자/설명을 확인합니다.</div>
         <div id="tool-prompt" class="prompt-grid">
-          <div class="muted">도구를 선택하세요.</div>
+          <div class="hint">도구를 선택하세요.</div>
         </div>
       </div>
 
       <div class="card">
-        <div class="section-label">System prompt</div>
-        <div class="muted" style="margin-bottom:10px;">여기서 프롬프트를 직접 수정/저장하면 다음 실행부터 동작이 바뀝니다.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-          <button class="secondary" onclick="loadSystemPrompt()">불러오기</button>
+        <div class="label">System prompt</div>
+        <div class="hint">직접 수정/저장하면 다음 실행부터 동작이 바뀝니다.</div>
+        <div class="btn-row">
+          <button class="ghost" onclick="loadSystemPrompt()">불러오기</button>
           <button onclick="saveSystemPrompt()">저장</button>
         </div>
-        <textarea id="system-prompt-editor" style="width:100%;min-height:220px;resize:vertical;background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:14px;color:var(--text);padding:12px;font-family:var(--mono);font-size:.82rem;line-height:1.45;outline:none;"></textarea>
-        <div id="system-prompt-hint" class="muted" style="margin-top:10px;font-size:.82rem;"></div>
+        <textarea id="system-prompt-editor"></textarea>
+        <div id="system-prompt-hint" style="margin-top:8px;font-size:.8rem;color:var(--muted);"></div>
       </div>
     </div>
 
+    <!-- ── Main content ── -->
     <div>
       <div class="tabs">
         <div class="tab active" onclick="switchTab('agent')">에이전트 질문</div>
@@ -348,41 +380,40 @@
       </div>
 
       <div class="card">
-    <!-- 에이전트 질문 패널 -->
-    <div id="panel-agent" class="panel active">
-      <div class="input-row">
-        <input type="text" id="question" placeholder="질문을 입력하세요 (예: 서울 날씨 알려줘, 1~100 난수 뽑아줘)" />
-        <button id="run-btn" onclick="runAgent()">실행</button>
-      </div>
-      <div class="section-label">실행 과정</div>
-      <div id="agent-log" class="log-box"><span style="color:#bbb">실행 결과가 여기에 표시됩니다</span></div>
-      <div class="section-label">최종 답변</div>
-      <div id="agent-answer" class="answer-box"></div>
-      <div id="agent-error" class="error-box"></div>
-    </div>
-
-    <!-- 도구 추가 패널 -->
-    <div id="panel-creator" class="panel">
-      <div class="input-row">
-        <input type="text" id="tool-desc" placeholder="추가할 기능을 설명하세요 (예: 주식 현재가 조회 기능 추가해줘)" />
-        <button id="create-btn" onclick="startCreate()">추가</button>
-      </div>
-      <div class="section-label">진행 상황</div>
-      <div id="creator-log" class="log-box"><span style="color:#bbb">도구 추가 결과가 여기에 표시됩니다</span></div>
-
-      <!-- 추가 정보 입력 폼 (필요 시 표시) -->
-      <div id="creator-form" class="form-box">
-        <div class="section-label" style="margin-bottom:12px">추가 정보가 필요합니다</div>
-        <div id="form-fields"></div>
-        <div class="form-actions">
-          <button onclick="submitAnswers()">제출</button>
-          <button class="secondary" onclick="cancelCreate()">취소</button>
+        <!-- 에이전트 질문 패널 -->
+        <div id="panel-agent" class="panel active">
+          <div class="input-row">
+            <input type="text" id="question" placeholder="질문을 입력하세요 (예: 서울 날씨 알려줘, 1~100 난수 뽑아줘)" />
+            <button id="run-btn" onclick="runAgent()">실행</button>
+          </div>
+          <div class="label">실행 과정</div>
+          <div id="agent-log" class="log-box"><span class="log-placeholder">실행 결과가 여기에 표시됩니다</span></div>
+          <div class="label">최종 답변</div>
+          <div id="agent-answer" class="answer-box"></div>
+          <div id="agent-error" class="error-box"></div>
         </div>
-      </div>
 
-      <div id="creator-answer" class="answer-box"></div>
-      <div id="creator-error" class="error-box"></div>
-    </div>
+        <!-- 도구 추가 패널 -->
+        <div id="panel-creator" class="panel">
+          <div class="input-row">
+            <input type="text" id="tool-desc" placeholder="추가할 기능을 설명하세요 (예: 주식 현재가 조회 기능 추가해줘)" />
+            <button id="create-btn" onclick="startCreate()">추가</button>
+          </div>
+          <div class="label">진행 상황</div>
+          <div id="creator-log" class="log-box"><span class="log-placeholder">도구 추가 결과가 여기에 표시됩니다</span></div>
+
+          <div id="creator-form" class="form-box">
+            <div class="label" style="margin-bottom:12px">추가 정보가 필요합니다</div>
+            <div id="form-fields"></div>
+            <div class="form-actions">
+              <button onclick="submitAnswers()">제출</button>
+              <button class="ghost" onclick="cancelCreate()">취소</button>
+            </div>
+          </div>
+
+          <div id="creator-answer" class="answer-box"></div>
+          <div id="creator-error" class="error-box"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -390,7 +421,7 @@
   <script>
     // ── Tools sidebar state ─────────────────────────────────────
     let tools = [];
-    let toolHealth = new Map(); // id -> {ok,status,latencyMs,error}
+    let toolHealth = new Map();
     let selectedToolId = null;
     let healthTimer = null;
 
@@ -413,20 +444,16 @@
         toolHealth = new Map();
         document.getElementById('tools-health').textContent = '?';
         renderToolList();
-        // refresh also triggers a quick health refresh when polling is on
-        if (document.getElementById('auto-health')?.checked) {
-          checkToolsHealth();
-        }
+        if (document.getElementById('auto-health')?.checked) checkToolsHealth();
       } catch (e) {
-        document.getElementById('tool-list').innerHTML = `<div class="muted">도구 목록 로드 실패: ${escapeHtml(e.message)}</div>`;
+        document.getElementById('tool-list').innerHTML = `<div class="hint">도구 목록 로드 실패: ${escapeHtml(e.message)}</div>`;
       }
     }
 
     function startHealthPolling() {
       stopHealthPolling();
-      // immediate + interval
       checkToolsHealth();
-      healthTimer = setInterval(() => checkToolsHealth(true), 30000);
+      healthTimer = setInterval(() => checkToolsHealth(), 30000);
     }
 
     function stopHealthPolling() {
@@ -457,9 +484,7 @@
           headers: { 'Content-Type': 'text/plain' },
           body: text
         });
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         hint.textContent = '저장 완료 (도구 목록 갱신 중...)';
         await refreshTools();
         hint.textContent = '저장 완료';
@@ -469,8 +494,6 @@
     }
 
     async function checkToolsHealth() {
-      const btns = document.querySelectorAll('.side-actions button');
-      // Don't lock the UI during polling.
       try {
         const res = await fetch('/api/tools/health');
         const rows = await res.json();
@@ -480,51 +503,35 @@
         renderToolList();
       } catch (e) {
         document.getElementById('tools-health').textContent = 'error';
-      } finally {
-        btns.forEach(b => b.disabled = false);
       }
     }
 
     function renderToolList() {
       const list = document.getElementById('tool-list');
       if (!tools.length) {
-        list.innerHTML = `<div class="muted">등록된 도구가 없습니다. (도구 추가 탭에서 생성 가능)</div>`;
+        list.innerHTML = `<div class="hint">등록된 도구가 없습니다.</div>`;
         return;
       }
-
       list.innerHTML = '';
       tools.forEach(t => {
         const h = toolHealth.get(String(t.id));
-        let dot = 'warn';
-        let statusText = 'UNKNOWN';
+        let dot = 'warn', statusText = 'UNKNOWN';
         if (h) {
-          if (h.status >= 200 && h.status < 300) {
-            dot = 'good';
-            statusText = 'HEALTH';
-          } else if (h.status === 404) {
-            dot = 'warn';
-            statusText = 'UNKNOWN';
-          } else {
-            dot = 'bad';
-            statusText = 'FAIL';
-          }
+          if (h.status >= 200 && h.status < 300) { dot = 'good'; statusText = 'OK'; }
+          else if (h.status === 404) { dot = 'warn'; statusText = 'UNKNOWN'; }
+          else { dot = 'bad'; statusText = 'FAIL'; }
         }
-
         const div = document.createElement('div');
         div.className = 'tool-item' + (String(t.id) === String(selectedToolId) ? ' active' : '');
         div.onclick = () => selectTool(t.id);
         div.innerHTML = `
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div class="tool-row">
             <div class="tool-name">${escapeHtml(t.name || ('Tool ' + t.id))}</div>
             <span class="pill"><span class="dot ${dot}"></span>${escapeHtml(statusText)}</span>
-          </div>
-        `;
+          </div>`;
         list.appendChild(div);
       });
-
-      if (selectedToolId == null && tools.length) {
-        selectTool(tools[0].id);
-      }
+      if (selectedToolId == null && tools.length) selectTool(tools[0].id);
     }
 
     function selectTool(id) {
@@ -532,49 +539,30 @@
       const tool = tools.find(t => String(t.id) === String(selectedToolId));
       const el = document.getElementById('tool-prompt');
       if (!tool) {
-        el.innerHTML = `<div class="muted">프롬프트 블록을 찾을 수 없습니다.</div>`;
+        el.innerHTML = `<div class="hint">프롬프트 블록을 찾을 수 없습니다.</div>`;
         renderToolList();
         return;
       }
-
       const health = toolHealth.get(String(tool.id));
       let dot = 'warn', status = 'UNKNOWN';
       if (health) {
-        if (health.status >= 200 && health.status < 300) { dot = 'good'; status = 'HEALTH'; }
+        if (health.status >= 200 && health.status < 300) { dot = 'good'; status = 'OK'; }
         else if (health.status === 404) { dot = 'warn'; status = 'UNKNOWN'; }
         else { dot = 'bad'; status = 'FAIL'; }
       }
-
       el.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <div class="prompt-title">${escapeHtml(tool.name || ('Tool ' + tool.id))}</div>
           <span class="pill"><span class="dot ${dot}"></span>${escapeHtml(status)}</span>
         </div>
-        <div class="kv">
-          <div class="k">URL</div>
-          <div class="v">${escapeHtml(tool.url || '')}</div>
-        </div>
-        <div class="kv">
-          <div class="k">ARGS</div>
-          <div class="v">${escapeHtml(tool.args || '')}</div>
-        </div>
-        <div class="kv">
-          <div class="k">DESC</div>
-          <div class="v">${escapeHtml(tool.description || '')}</div>
-        </div>
-        <details class="raw" ontoggle="toggleRawPrompt(this)">
+        <div class="kv"><div class="k">URL</div><div class="v">${escapeHtml(tool.url || '')}</div></div>
+        <div class="kv"><div class="k">ARGS</div><div class="v">${escapeHtml(tool.args || '')}</div></div>
+        <div class="kv"><div class="k">DESC</div><div class="v">${escapeHtml(tool.description || '')}</div></div>
+        <details class="raw">
           <summary>원문 보기</summary>
           <pre class="prompt">${escapeHtml(tool.promptBlock || '')}</pre>
-        </details>
-      `;
-      el.classList.remove('raw-open');
+        </details>`;
       renderToolList();
-    }
-
-    function toggleRawPrompt(detailsEl) {
-      const root = document.getElementById('tool-prompt');
-      if (!root) return;
-      root.classList.toggle('raw-open', detailsEl.open);
     }
 
     // ── 탭 전환 ──────────────────────────────────────────────────
@@ -601,11 +589,15 @@
       errorBox.style.display = 'none';
       btn.disabled = true;
 
+      let firstStep = true;
       try {
-        await consumeSse('/api/agent/run', {question}, logBox, (type, data, firstStep) => {
+        await consumeSse('/api/agent/run', {question}, logBox, (type, data) => {
           if (type === 'step') {
-            if (firstStep) logBox.innerHTML = '';
-            appendStep(logBox, data.message, data.dt_ms, data.total_ms);
+            if (firstStep) { logBox.innerHTML = ''; firstStep = false; }
+            appendStep(logBox, data.message, data.dt_ms);
+          } else if (type === 'thought') {
+            if (firstStep) { logBox.innerHTML = ''; firstStep = false; }
+            appendThought(logBox, data.message);
           } else if (type === 'final') {
             answerBox.textContent = data.message;
             answerBox.style.display = 'block';
@@ -652,9 +644,7 @@
       const errorBox = document.getElementById('creator-error');
       const btn = document.getElementById('create-btn');
 
-      if (Object.keys(answers).length === 0) {
-        logBox.innerHTML = '<span class="spinner"></span> 분석 중...';
-      }
+      if (Object.keys(answers).length === 0) logBox.innerHTML = '<span class="spinner"></span> 분석 중...';
       answerBox.style.display = 'none';
       errorBox.style.display = 'none';
       btn.disabled = true;
@@ -664,7 +654,7 @@
         await consumeSse('/api/tool-creator/create', {description, answers}, logBox, (type, data) => {
           if (type === 'step') {
             if (firstStep) { logBox.innerHTML = ''; firstStep = false; }
-            appendStep(logBox, data.message, data.dt_ms, data.total_ms);
+            appendStep(logBox, data.message, data.dt_ms);
           } else if (type === 'form') {
             const formData = JSON.parse(data.message);
             renderForm(formData.questions);
@@ -691,18 +681,12 @@
       const fields = document.getElementById('form-fields');
       fields.innerHTML = '';
       questions.forEach(q => {
-        // Backward-compat: question can be a string
-        if (typeof q === 'string') {
-          q = { key: q, label: q, help: '', link: '', where_used: '' };
-        }
-
+        if (typeof q === 'string') q = { key: q, label: q, help: '', link: '', where_used: '' };
         const label = document.createElement('label');
         label.textContent = q.label || q.key || '추가 정보';
-
         if (q.help || q.where_used || q.link) {
           const help = document.createElement('div');
-          help.style.cssText = 'font-size:0.82rem;color:#666;line-height:1.35;margin:0 0 8px 0;';
-
+          help.style.cssText = 'font-size:.8rem;color:var(--muted);line-height:1.4;margin:2px 0 8px 0;';
           const parts = [];
           if (q.help) parts.push(`<div><b>발급/확인:</b> ${escapeHtml(q.help)}</div>`);
           if (q.where_used) parts.push(`<div><b>사용처:</b> ${escapeHtml(q.where_used)}</div>`);
@@ -716,11 +700,10 @@
         } else {
           fields.appendChild(label);
         }
-
         const input = document.createElement('input');
         input.type = 'text';
         input.dataset.question = q.key || q.label || '';
-        input.placeholder = (q.key ? `${q.key} 값을 입력해주세요` : '입력해주세요');
+        input.placeholder = q.key ? `${q.key} 값을 입력해주세요` : '입력해주세요';
         fields.appendChild(input);
       });
       formBox.style.display = 'block';
@@ -736,7 +719,7 @@
       });
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = '', currentEvent = '', firstStep = true;
+      let buffer = '', currentEvent = '';
 
       while (true) {
         const {done, value} = await reader.read();
@@ -750,21 +733,27 @@
           } else if (line.startsWith('data:')) {
             try {
               const data = JSON.parse(line.slice(5).trim());
-              onEvent(currentEvent, data, firstStep);
-              if (currentEvent === 'step') firstStep = false;
+              onEvent(currentEvent, data);
             } catch (_) {}
           }
         }
       }
     }
 
-    function appendStep(logBox, message, dtMs, totalMs) {
+    function appendStep(logBox, message, dtMs) {
       const div = document.createElement('div');
       div.className = 'step-entry';
-      const badge = (typeof dtMs === 'number')
-        ? `<span class="pill" style="margin-left:auto;opacity:.85;"><span class="dot"></span>${dtMs}ms</span>`
+      const badge = typeof dtMs === 'number'
+        ? `<span class="step-badge">${dtMs}ms</span>`
         : '';
-      div.innerHTML = `<span class="step-icon">→</span><span>${escapeHtml(message)}</span>${badge}`;
+      div.innerHTML = `<span class="step-icon">→</span><span class="step-text">${escapeHtml(message)}</span>${badge}`;
+      logBox.appendChild(div);
+    }
+
+    function appendThought(logBox, message) {
+      const div = document.createElement('div');
+      div.className = 'thought-entry';
+      div.innerHTML = `<span class="thought-icon">💭</span><span class="thought-text">${escapeHtml(message)}</span>`;
       logBox.appendChild(div);
     }
 

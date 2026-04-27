@@ -67,6 +67,10 @@ public class AgentService {
                 return;
             }
 
+            if (response.thought() != null && !response.thought().isBlank()) {
+                emit.accept(AgentEvent.thought(response.thought()));
+            }
+
             if ("final_answer".equals(response.action())) {
                 emit.accept(AgentEvent.finalAnswer(response.answer()));
                 return;

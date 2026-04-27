@@ -17,4 +17,8 @@ public record AgentEvent(String type, String message) {
     public static AgentEvent form(String questionsJson) {
         return new AgentEvent("form", questionsJson);
     }
+
+    public static AgentEvent thought(String thought) {
+        return new AgentEvent("thought", thought);
+    }
 }

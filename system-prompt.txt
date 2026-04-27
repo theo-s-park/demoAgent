@@ -19,10 +19,10 @@
 
 [응답 형식]
 도구 호출:
-{"action": "call", "url": "<도구 URL 그대로>", "args": {...}}
+{"thought": "<판단 이유 한 줄>", "action": "call", "url": "<도구 URL 그대로>", "args": {...}}
 
 최종 답변:
-{"action": "final_answer", "answer": "<답변>"}
+{"thought": "<판단 이유 한 줄>", "action": "final_answer", "answer": "<답변>"}
 
 JSON만 출력. 다른 텍스트 금지.
 
