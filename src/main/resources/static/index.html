@@ -417,7 +417,11 @@
           </div>
           <div class="label">실행 과정</div>
           <div id="agent-log" class="log-box"><span class="log-placeholder">실행 결과가 여기에 표시됩니다</span></div>
-          <div class="label">최종 답변</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div class="label" style="margin-bottom:0;">최종 답변</div>
+            <span id="answer-spinner" style="display:none;"><span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span></span>
+            <span id="answer-elapsed" style="font-family:var(--mono);font-size:.72rem;color:var(--muted);display:none;"></span>
+          </div>
           <div id="agent-answer" class="answer-box"></div>
           <div id="agent-error" class="error-box"></div>
         </div>
@@ -627,6 +631,12 @@
       errorBox.style.display = 'none';
       btn.disabled = true;
 
+      const spinner = document.getElementById('answer-spinner');
+      const elapsed = document.getElementById('answer-elapsed');
+      spinner.style.display = 'inline';
+      elapsed.style.display = 'none';
+      const startTime = Date.now();
+
       let firstStep = true;
       try {
         await consumeSse('/api/agent/run', {question}, logBox, (type, data) => {
@@ -639,14 +649,19 @@
           } else if (type === 'final') {
             answerBox.textContent = data.message;
             answerBox.style.display = 'block';
+            spinner.style.display = 'none';
+            elapsed.textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+            elapsed.style.display = 'inline';
           } else if (type === 'error') {
             errorBox.textContent = '오류: ' + data.message;
             errorBox.style.display = 'block';
+            spinner.style.display = 'none';
           }
         });
       } catch (e) {
         errorBox.textContent = '연결 오류: ' + e.message;
         errorBox.style.display = 'block';
+        spinner.style.display = 'none';
       } finally {
         btn.disabled = false;
       }
