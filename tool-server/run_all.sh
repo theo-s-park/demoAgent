@@ -22,18 +22,11 @@ echo "[tool-server] Starting tools:"
 echo "  - random  : http://127.0.0.1:8081/execute"
 echo "  - currency: http://127.0.0.1:8082/execute"
 echo "  - weather : http://127.0.0.1:8083/execute"
-if [[ -f "stock_price_app.py" ]]; then
-  echo "  - stock_price: http://127.0.0.1:8090/execute"
-fi
 echo ""
 echo "Press Ctrl+C to stop all."
 
 python -m uvicorn random_app:app   --host 127.0.0.1 --port 8081 &
 python -m uvicorn currency_app:app --host 127.0.0.1 --port 8082 &
 python -m uvicorn weather_app:app  --host 127.0.0.1 --port 8083 &
-if [[ -f "stock_price_app.py" ]]; then
-  python -m uvicorn stock_price_app:app --host 127.0.0.1 --port 8090 &
-fi
-
 wait
 

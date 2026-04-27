@@ -17,12 +17,6 @@
    인자(예보, 최대 5일): {"query": "<도시명>", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD"}
    설명: 현재 날씨(좌표) 또는 도시명+날짜 범위(최대 5일) 예보를 조회
 
-
-- 주식 현재가 조회
-   URL: http://localhost:8090/execute
-   인자: {"symbol": "string"}
-   설명: 주식 심볼을 입력받아 현재가를 조회합니다.
-
 [응답 형식]
 도구 호출:
 {"action": "call", "url": "<도구 URL 그대로>", "args": {...}}
