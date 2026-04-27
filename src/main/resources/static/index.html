@@ -6,105 +6,277 @@
   <title>demoAgent</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f5f5f5;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 40px 16px;
+    :root{
+      --bg0:#0b1020;
+      --bg1:#0f1630;
+      --card:#0f1833cc;
+      --card2:#0b1227cc;
+      --line:rgba(255,255,255,.10);
+      --line2:rgba(255,255,255,.14);
+      --text:#eaf0ff;
+      --muted:rgba(234,240,255,.68);
+      --accent:#6ee7ff;
+      --accent2:#a78bfa;
+      --good:#56f0a6;
+      --bad:#ff5f7a;
+      --warn:#ffd36e;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     }
-    h1 { font-size: 1.6rem; color: #222; margin-bottom: 4px; }
-    .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 24px; }
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(1100px 500px at 12% 18%, rgba(110,231,255,.20), transparent 60%),
+        radial-gradient(900px 540px at 80% 10%, rgba(167,139,250,.22), transparent 55%),
+        radial-gradient(900px 520px at 60% 82%, rgba(86,240,166,.14), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color:var(--text);
+      min-height:100vh;
+      display:flex;
+      align-items:stretch;
+      padding:24px;
+      gap:16px;
+    }
+    .app-title{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      padding:14px 14px 12px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      backdrop-filter: blur(10px);
+    }
+    h1{
+      font-size: 1.05rem;
+      letter-spacing:.02em;
+      color: var(--text);
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .badge{
+      font-family:var(--mono);
+      font-size:.72rem;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid var(--line2);
+      color:var(--muted);
+      background:rgba(255,255,255,.04);
+    }
+    .subtitle { color: var(--muted); font-size: 0.88rem; line-height:1.35; }
 
-    .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
-    .tab {
-      padding: 8px 20px; border-radius: 8px 8px 0 0;
-      border: 1px solid #ddd; border-bottom: none;
-      background: #eee; cursor: pointer; font-size: 0.9rem; color: #666;
+    .layout{
+      width:100%;
+      display:grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap:16px;
+      align-items: start;
+      max-width: 1180px;
+      margin: 0 auto;
     }
-    .tab.active { background: #fff; color: #222; font-weight: 600; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap:wrap; }
+    .tab {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: var(--muted);
+      user-select:none;
+    }
+    .tab.active {
+      background: linear-gradient(180deg, rgba(110,231,255,.12), rgba(167,139,250,.10));
+      color: var(--text);
+      border-color: rgba(110,231,255,.26);
+      font-weight: 650;
+    }
 
     .card {
-      background: #fff; border-radius: 0 12px 12px 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-      padding: 24px; width: 100%; max-width: 720px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border-radius: 16px;
+      border:1px solid var(--line);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      padding: 18px;
+      width: 100%;
+      backdrop-filter: blur(10px);
     }
     .panel { display: none; }
     .panel.active { display: block; }
 
     .input-row { display: flex; gap: 8px; margin-bottom: 20px; }
     input[type="text"] {
-      flex: 1; padding: 10px 14px; border: 1px solid #ddd;
-      border-radius: 8px; font-size: 1rem; outline: none;
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      font-size: 0.98rem;
+      outline: none;
+      background: rgba(0,0,0,.18);
+      color: var(--text);
     }
-    input[type="text"]:focus { border-color: #4f8ef7; }
+    input[type="text"]::placeholder{ color: rgba(234,240,255,.45); }
+    input[type="text"]:focus { border-color: rgba(110,231,255,.55); box-shadow: 0 0 0 3px rgba(110,231,255,.12); }
     button {
-      padding: 10px 20px; background: #4f8ef7; color: #fff;
-      border: none; border-radius: 8px; font-size: 1rem;
-      cursor: pointer; transition: background 0.2s; white-space: nowrap;
+      padding: 11px 16px;
+      background: linear-gradient(135deg, rgba(110,231,255,.95), rgba(167,139,250,.92));
+      color: rgba(8,12,24,.92);
+      border: none;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .12s ease, filter .12s ease;
+      white-space: nowrap;
     }
-    button:hover { background: #3a7ae0; }
-    button:disabled { background: #a0bdf8; cursor: not-allowed; }
-    button.secondary { background: #6c757d; }
-    button.secondary:hover { background: #545b62; }
+    button:hover { transform: translateY(-1px); filter: brightness(1.03); }
+    button:disabled { filter: grayscale(.25); opacity:.6; cursor: not-allowed; transform:none; }
+    button.secondary { background: rgba(255,255,255,.08); color: var(--text); border:1px solid var(--line); }
+    button.secondary:hover { filter:none; }
 
     .section-label {
-      font-size: 0.75rem; font-weight: 600; color: #999;
+      font-size: 0.72rem; font-weight: 700; color: rgba(234,240,255,.60);
       text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;
     }
     .log-box {
-      background: #f8f9fa; border: 1px solid #eee; border-radius: 8px;
+      background: rgba(0,0,0,.18); border: 1px solid var(--line); border-radius: 14px;
       padding: 12px; min-height: 80px; margin-bottom: 20px;
-      font-size: 0.875rem; color: #444;
+      font-size: 0.9rem; color: rgba(234,240,255,.88);
     }
-    .step-entry {
-      padding: 4px 0; border-bottom: 1px solid #f0f0f0;
-      display: flex; align-items: flex-start; gap: 8px;
-    }
+    .step-entry { padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.06); display:flex; align-items:flex-start; gap:10px; }
     .step-entry:last-child { border-bottom: none; }
-    .step-icon { color: #4f8ef7; flex-shrink: 0; }
+    .step-icon { color: var(--accent); flex-shrink: 0; }
 
     .answer-box {
-      background: #f0f7ff; border: 1px solid #c8e0ff; border-radius: 8px;
-      padding: 16px; font-size: 1rem; color: #1a3a6b; min-height: 60px;
+      background: rgba(110,231,255,.10); border: 1px solid rgba(110,231,255,.22); border-radius: 14px;
+      padding: 14px 14px; font-size: 0.98rem; color: rgba(234,240,255,.96); min-height: 60px;
       margin-bottom: 12px; white-space: pre-wrap; display: none;
     }
     .error-box {
-      background: #fff5f5; border: 1px solid #ffc9c9; border-radius: 8px;
-      padding: 12px 16px; font-size: 0.875rem; color: #c0392b; display: none;
+      background: rgba(255,95,122,.10); border: 1px solid rgba(255,95,122,.26); border-radius: 14px;
+      padding: 12px 14px; font-size: 0.92rem; color: rgba(255,220,227,.96); display: none;
     }
     .form-box {
-      background: #fffbf0; border: 1px solid #ffe58f; border-radius: 8px;
+      background: rgba(255,211,110,.10); border: 1px solid rgba(255,211,110,.28); border-radius: 14px;
       padding: 16px; margin-bottom: 16px; display: none;
     }
-    .form-box label { display: block; margin-bottom: 4px; font-size: 0.875rem; color: #555; font-weight: 500; }
+    .form-box label { display: block; margin-bottom: 4px; font-size: 0.9rem; color: rgba(234,240,255,.92); font-weight: 650; }
     .form-box input {
-      width: 100%; padding: 8px 12px; border: 1px solid #ddd;
-      border-radius: 6px; font-size: 0.875rem; margin-bottom: 12px;
+      width: 100%; padding: 10px 12px; border: 1px solid var(--line);
+      border-radius: 12px; font-size: 0.92rem; margin-bottom: 12px;
+      background: rgba(0,0,0,.18); color: var(--text);
     }
     .form-actions { display: flex; gap: 8px; }
 
     .spinner {
       display: inline-block; width: 14px; height: 14px;
-      border: 2px solid #4f8ef7; border-top-color: transparent;
+      border: 2px solid rgba(110,231,255,.95); border-top-color: transparent;
       border-radius: 50%; animation: spin 0.7s linear infinite;
       vertical-align: middle; margin-right: 6px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── tools panel ───────────────────────────────────────────── */
+    .sidebar{
+      position: sticky;
+      top: 18px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      min-height: 240px;
+    }
+    .sidebar .card{ padding:14px; }
+    .side-actions{ display:flex; gap:8px; }
+    .tool-list{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+    .tool-item{
+      border:1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 10px;
+      background: rgba(0,0,0,.16);
+      cursor:pointer;
+      transition: transform .12s ease, border-color .12s ease;
+    }
+    .tool-item:hover{ transform: translateY(-1px); border-color: rgba(110,231,255,.26); }
+    .tool-item.active{ border-color: rgba(167,139,250,.34); box-shadow: 0 0 0 3px rgba(167,139,250,.10); }
+    .tool-name{ font-weight: 800; font-size: .95rem; }
+    .tool-meta{ font-family: var(--mono); font-size: .78rem; color: rgba(234,240,255,.62); margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      font-family: var(--mono);
+      font-size:.74rem;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color: rgba(234,240,255,.72);
+    }
+    .dot{ width:8px; height:8px; border-radius:999px; background: rgba(255,255,255,.25); display:inline-block; }
+    .dot.good{ background: var(--good); }
+    .dot.bad{ background: var(--bad); }
+    .dot.warn{ background: var(--warn); }
+    pre.prompt{
+      font-family: var(--mono);
+      font-size: .78rem;
+      line-height:1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: rgba(0,0,0,.18);
+      border:1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      max-height: 260px;
+      overflow:auto;
+      color: rgba(234,240,255,.92);
+    }
+    .muted{ color: rgba(234,240,255,.60); font-size:.86rem; line-height:1.35; }
+
+    @media (max-width: 980px){
+      body{ padding: 18px; }
+      .layout{ grid-template-columns: 1fr; }
+      .sidebar{ position: static; }
+    }
   </style>
 </head>
 <body>
-  <h1>demoAgent</h1>
-  <p class="subtitle">LLM이 Tool을 호출하는 과정을 실시간으로 확인하세요</p>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="app-title">
+        <h1>demoAgent <span class="badge">tool-driven</span></h1>
+        <p class="subtitle">도구 목록/상태를 보고, 에이전트가 호출하는 과정을 실시간으로 추적합니다.</p>
+      </div>
 
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab('agent')">에이전트 질문</div>
-    <div class="tab" onclick="switchTab('creator')">도구 추가</div>
-  </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div>
+            <div class="section-label" style="margin-bottom:6px;">Tools</div>
+            <div class="muted">system-prompt에서 파싱한 도구 목록입니다.</div>
+          </div>
+        </div>
+        <div class="side-actions" style="margin-top:12px;">
+          <button class="secondary" onclick="refreshTools()">목록 새로고침</button>
+          <button onclick="checkToolsHealth()">상태 확인</button>
+        </div>
+        <div id="tools-summary" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="pill"><span class="dot"></span><span id="tools-count">-</span> tools</span>
+          <span class="pill"><span class="dot warn"></span><span id="tools-health">?</span> health</span>
+        </div>
+        <div id="tool-list" class="tool-list"></div>
+      </div>
 
-  <div class="card">
+      <div class="card">
+        <div class="section-label">Prompt entry</div>
+        <div class="muted" style="margin-bottom:10px;">선택한 도구의 프롬프트 블록(URL/인자/설명)을 확인할 수 있어요.</div>
+        <pre id="tool-prompt" class="prompt">도구를 선택하세요.</pre>
+      </div>
+    </div>
+
+    <div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('agent')">에이전트 질문</div>
+        <div class="tab" onclick="switchTab('creator')">도구 추가</div>
+      </div>
+
+      <div class="card">
     <!-- 에이전트 질문 패널 -->
     <div id="panel-agent" class="panel active">
       <div class="input-row">
@@ -140,9 +312,88 @@
       <div id="creator-answer" class="answer-box"></div>
       <div id="creator-error" class="error-box"></div>
     </div>
+      </div>
+    </div>
   </div>
 
   <script>
+    // ── Tools sidebar state ─────────────────────────────────────
+    let tools = [];
+    let toolHealth = new Map(); // id -> {ok,status,latencyMs,error}
+    let selectedToolId = null;
+
+    window.addEventListener('load', () => {
+      refreshTools();
+    });
+
+    async function refreshTools() {
+      try {
+        const res = await fetch('/api/tools');
+        tools = await res.json();
+        document.getElementById('tools-count').textContent = String(tools.length);
+        toolHealth = new Map();
+        document.getElementById('tools-health').textContent = '?';
+        renderToolList();
+      } catch (e) {
+        document.getElementById('tool-list').innerHTML = `<div class="muted">도구 목록 로드 실패: ${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    async function checkToolsHealth() {
+      const btns = document.querySelectorAll('.side-actions button');
+      btns.forEach(b => b.disabled = true);
+      try {
+        const res = await fetch('/api/tools/health');
+        const rows = await res.json();
+        toolHealth = new Map(rows.map(r => [String(r.id), r]));
+        const okCount = rows.filter(r => r.ok).length;
+        document.getElementById('tools-health').textContent = `${okCount}/${rows.length}`;
+        renderToolList();
+      } catch (e) {
+        document.getElementById('tools-health').textContent = 'error';
+      } finally {
+        btns.forEach(b => b.disabled = false);
+      }
+    }
+
+    function renderToolList() {
+      const list = document.getElementById('tool-list');
+      if (!tools.length) {
+        list.innerHTML = `<div class="muted">등록된 도구가 없습니다. (도구 추가 탭에서 생성 가능)</div>`;
+        return;
+      }
+
+      list.innerHTML = '';
+      tools.forEach(t => {
+        const h = toolHealth.get(String(t.id));
+        const dot = h ? (h.ok ? 'good' : 'bad') : '';
+        const statusText = h ? (h.ok ? `OK ${h.status} · ${h.latencyMs}ms` : `DOWN · ${escapeHtml(h.error || '')}`) : 'unknown';
+
+        const div = document.createElement('div');
+        div.className = 'tool-item' + (String(t.id) === String(selectedToolId) ? ' active' : '');
+        div.onclick = () => selectTool(t.id);
+        div.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div class="tool-name">${escapeHtml(t.name || ('Tool ' + t.id))}</div>
+            <span class="pill"><span class="dot ${dot}"></span>${escapeHtml(statusText)}</span>
+          </div>
+          <div class="tool-meta">${escapeHtml(t.url || '')}</div>
+        `;
+        list.appendChild(div);
+      });
+
+      if (selectedToolId == null && tools.length) {
+        selectTool(tools[0].id);
+      }
+    }
+
+    function selectTool(id) {
+      selectedToolId = String(id);
+      const tool = tools.find(t => String(t.id) === String(selectedToolId));
+      document.getElementById('tool-prompt').textContent = tool?.promptBlock || '프롬프트 블록을 찾을 수 없습니다.';
+      renderToolList();
+    }
+
     // ── 탭 전환 ──────────────────────────────────────────────────
     function switchTab(tab) {
       document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['agent','creator'][i] === tab));
@@ -256,13 +507,36 @@
       const fields = document.getElementById('form-fields');
       fields.innerHTML = '';
       questions.forEach(q => {
+        // Backward-compat: question can be a string
+        if (typeof q === 'string') {
+          q = { key: q, label: q, help: '', link: '', where_used: '' };
+        }
+
         const label = document.createElement('label');
-        label.textContent = q;
+        label.textContent = q.label || q.key || '추가 정보';
+
+        if (q.help || q.where_used || q.link) {
+          const help = document.createElement('div');
+          help.style.cssText = 'font-size:0.82rem;color:#666;line-height:1.35;margin:0 0 8px 0;';
+
+          const parts = [];
+          if (q.help) parts.push(`<div><b>발급/확인:</b> ${escapeHtml(q.help)}</div>`);
+          if (q.where_used) parts.push(`<div><b>사용처:</b> ${escapeHtml(q.where_used)}</div>`);
+          if (q.link) {
+            const safeLink = escapeHtml(q.link);
+            parts.push(`<div><b>링크:</b> <a href="${safeLink}" target="_blank" rel="noreferrer">${safeLink}</a></div>`);
+          }
+          help.innerHTML = parts.join('');
+          fields.appendChild(label);
+          fields.appendChild(help);
+        } else {
+          fields.appendChild(label);
+        }
+
         const input = document.createElement('input');
         input.type = 'text';
-        input.dataset.question = q;
-        input.placeholder = '입력해주세요';
-        fields.appendChild(label);
+        input.dataset.question = q.key || q.label || '';
+        input.placeholder = (q.key ? `${q.key} 값을 입력해주세요` : '입력해주세요');
         fields.appendChild(input);
       });
       formBox.style.display = 'block';
@@ -308,7 +582,7 @@
     }
 
     function escapeHtml(str) {
-      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
   </script>
 </body>
