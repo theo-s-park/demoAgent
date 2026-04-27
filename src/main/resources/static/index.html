@@ -172,20 +172,35 @@
       display: flex;
       align-items: flex-start;
       gap: 8px;
-      padding: 6px 0;
+      padding: 8px 0;
       border-bottom: 1px solid var(--border);
-      line-height: 1.4;
+      line-height: 1.5;
     }
     .step-entry:last-child { border-bottom: none; }
-    .step-icon { color: var(--accent); flex-shrink: 0; font-size: .9rem; }
-    .step-text { flex: 1; color: var(--text); }
+    .step-icon { flex-shrink: 0; font-size: 1rem; width: 20px; text-align: center; }
+    .step-body { flex: 1; min-width: 0; }
+    .step-label { font-weight: 600; font-size: .82rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+    .step-text { color: var(--text); font-size: .875rem; word-break: break-all; }
     .step-badge {
       font-family: var(--mono);
       font-size: .72rem;
       color: var(--muted);
       white-space: nowrap;
-      margin-left: auto;
       padding-left: 8px;
+      flex-shrink: 0;
+    }
+    .json-block {
+      font-family: var(--mono);
+      font-size: .78rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-top: 6px;
+      white-space: pre;
+      overflow-x: auto;
+      color: var(--text);
+      line-height: 1.5;
     }
 
     /* ── Thought entry ── */
@@ -193,12 +208,12 @@
       display: flex;
       align-items: flex-start;
       gap: 8px;
-      padding: 6px 0;
+      padding: 8px 0;
       border-bottom: 1px solid var(--border);
       line-height: 1.4;
     }
     .thought-entry:last-child { border-bottom: none; }
-    .thought-icon { flex-shrink: 0; font-size: .9rem; }
+    .thought-icon { flex-shrink: 0; font-size: 1rem; width: 20px; text-align: center; }
     .thought-text {
       flex: 1;
       color: var(--thought-text);
@@ -362,9 +377,13 @@
 
       <div class="card">
         <div class="label">System prompt</div>
-        <div class="hint">직접 수정/저장하면 다음 실행부터 동작이 바뀝니다.</div>
+        <div class="hint">수정 지시를 입력하면 AI가 알아서 해당 부분만 바꿔줍니다.</div>
+        <div class="input-row" style="margin-bottom:10px;">
+          <input type="text" id="prompt-patch-input" placeholder="예: 날씨 도구에 습도도 포함해줘" />
+          <button id="prompt-patch-btn" onclick="patchPrompt()">적용</button>
+        </div>
         <div class="btn-row">
-          <button class="ghost" onclick="loadSystemPrompt()">불러오기</button>
+          <button class="ghost" onclick="loadSystemPrompt()">전체 보기</button>
           <button onclick="saveSystemPrompt()">저장</button>
         </div>
         <textarea id="system-prompt-editor"></textarea>
@@ -740,14 +759,59 @@
       }
     }
 
+    const STEP_META = [
+      { match: /^LLM 호출 중/,     icon: '🤖', label: 'LLM 호출' },
+      { match: /^Tool 호출:/,       icon: '🔧', label: 'Tool 호출' },
+      { match: /^Tool 결과:/,       icon: '📥', label: 'Tool 결과' },
+      { match: /^Tool 호출 실패/,   icon: '⚠️', label: 'Tool 오류' },
+    ];
+
     function appendStep(logBox, message, dtMs) {
+      const meta = STEP_META.find(m => m.match.test(message)) || { icon: '→', label: null };
+      const badge = typeof dtMs === 'number' ? `<span class="step-badge">${dtMs}ms</span>` : '';
+
+      // Tool 호출/결과는 본문에서 JSON 분리
+      let mainText = message;
+      let jsonBlock = '';
+
+      if (meta.label === 'Tool 호출') {
+        // "Tool 호출: <url>\n<json>"
+        const nlIdx = message.indexOf('\n');
+        if (nlIdx !== -1) {
+          mainText = message.slice(0, nlIdx);   // URL 부분
+          const jsonPart = message.slice(nlIdx + 1).trim();
+          jsonBlock = tryPrettyJson(jsonPart);
+        }
+      } else if (meta.label === 'Tool 결과') {
+        // "Tool 결과: <json>"
+        const colonIdx = message.indexOf(': ');
+        if (colonIdx !== -1) {
+          mainText = message.slice(0, colonIdx + 2);
+          const jsonPart = message.slice(colonIdx + 2).trim();
+          jsonBlock = tryPrettyJson(jsonPart);
+        }
+      }
+
       const div = document.createElement('div');
       div.className = 'step-entry';
-      const badge = typeof dtMs === 'number'
-        ? `<span class="step-badge">${dtMs}ms</span>`
-        : '';
-      div.innerHTML = `<span class="step-icon">→</span><span class="step-text">${escapeHtml(message)}</span>${badge}`;
+      div.innerHTML = `
+        <span class="step-icon">${meta.icon}</span>
+        <div class="step-body">
+          ${meta.label ? `<div class="step-label">${meta.label}</div>` : ''}
+          <div class="step-text">${escapeHtml(mainText)}</div>
+          ${jsonBlock}
+        </div>
+        ${badge}`;
       logBox.appendChild(div);
+    }
+
+    function tryPrettyJson(str) {
+      try {
+        const parsed = JSON.parse(str);
+        return `<div class="json-block">${escapeHtml(JSON.stringify(parsed, null, 2))}</div>`;
+      } catch (_) {
+        return str ? `<div class="step-text" style="margin-top:4px">${escapeHtml(str)}</div>` : '';
+      }
     }
 
     function appendThought(logBox, message) {
@@ -755,6 +819,37 @@
       div.className = 'thought-entry';
       div.innerHTML = `<span class="thought-icon">💭</span><span class="thought-text">${escapeHtml(message)}</span>`;
       logBox.appendChild(div);
+    }
+
+    // ── 스마트 프롬프트 편집 ─────────────────────────────────────
+    document.getElementById('prompt-patch-input').addEventListener('keydown', e => { if (e.key === 'Enter') patchPrompt(); });
+
+    async function patchPrompt() {
+      const input = document.getElementById('prompt-patch-input');
+      const hint = document.getElementById('system-prompt-hint');
+      const btn = document.getElementById('prompt-patch-btn');
+      const instruction = input.value.trim();
+      if (!instruction) return;
+
+      hint.textContent = 'AI가 프롬프트 수정 중...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/tools/prompt/patch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instruction })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const patched = await res.text();
+        document.getElementById('system-prompt-editor').value = patched;
+        hint.textContent = '수정 완료 — 확인 후 저장하세요.';
+        input.value = '';
+        await refreshTools();
+      } catch (e) {
+        hint.textContent = '수정 실패: ' + e.message;
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     function escapeHtml(str) {

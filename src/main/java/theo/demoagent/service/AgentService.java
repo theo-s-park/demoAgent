@@ -77,7 +77,13 @@ public class AgentService {
                     continue;
                 }
 
-                emit.accept(AgentEvent.step("Tool 호출: " + url + " " + response.args()));
+                String prettyArgs;
+                try {
+                    prettyArgs = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response.args());
+                } catch (Exception e) {
+                    prettyArgs = String.valueOf(response.args());
+                }
+                emit.accept(AgentEvent.step("Tool 호출: " + url + "\n" + prettyArgs));
 
                 String toolResult;
                 try {

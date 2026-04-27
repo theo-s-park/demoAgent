@@ -3,11 +3,13 @@ package theo.demoagent.controller;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
+import theo.demoagent.client.OpenAiClient;
 import theo.demoagent.dto.ToolHealthStatus;
 import theo.demoagent.dto.ToolInfo;
 import theo.demoagent.service.ToolRegistryService;
@@ -17,15 +19,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/tools")
 public class ToolsController {
 
     private final ToolRegistryService toolRegistryService;
+    private final OpenAiClient openAiClient;
 
-    public ToolsController(ToolRegistryService toolRegistryService) {
+    public ToolsController(ToolRegistryService toolRegistryService, OpenAiClient openAiClient) {
         this.toolRegistryService = toolRegistryService;
+        this.openAiClient = openAiClient;
     }
 
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -41,6 +46,26 @@ public class ToolsController {
     @PutMapping(value = "/prompt", consumes = MediaType.TEXT_PLAIN_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
     public String updatePrompt(@RequestBody String content) throws IOException {
         return toolRegistryService.updateSystemPrompt(content);
+    }
+
+    @PostMapping(value = "/prompt/patch", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
+    public String patchPrompt(@RequestBody Map<String, String> body) throws IOException {
+        String instruction = body.getOrDefault("instruction", "").trim();
+        if (instruction.isBlank()) throw new IllegalArgumentException("instruction이 비어있습니다.");
+
+        String currentPrompt = toolRegistryService.loadSystemPromptRaw();
+
+        String systemMsg = "당신은 시스템 프롬프트 편집 전문가입니다. " +
+                "사용자의 수정 지시에 따라 현재 시스템 프롬프트를 정확히 수정한 뒤, 수정된 전체 프롬프트 텍스트만 반환하세요. " +
+                "마크다운, 설명, 추가 텍스트 일절 금지. 수정된 프롬프트 원문만 출력.";
+        String userMsg = "[현재 프롬프트]\n" + currentPrompt + "\n\n[수정 지시]\n" + instruction;
+
+        String patched = openAiClient.chat(List.of(
+                Map.of("role", "system", "content", systemMsg),
+                Map.of("role", "user", "content", userMsg)
+        ));
+
+        return toolRegistryService.updateSystemPrompt(patched);
     }
 
     @GetMapping(value = "/health", produces = MediaType.APPLICATION_JSON_VALUE)
