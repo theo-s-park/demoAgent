@@ -6,6 +6,10 @@ from pydantic import BaseModel, Field, ConfigDict
 app = FastAPI()
 API_KEY = os.getenv("EXCHANGERATE_API_KEY")
 
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
 
 class Request(BaseModel):
     model_config = ConfigDict(populate_by_name=True)

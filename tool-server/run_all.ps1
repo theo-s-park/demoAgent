@@ -20,17 +20,28 @@ Write-Host "[tool-server] Starting tools:"
 Write-Host "  - random  : http://127.0.0.1:8081/execute"
 Write-Host "  - currency: http://127.0.0.1:8082/execute"
 Write-Host "  - weather : http://127.0.0.1:8083/execute"
+if (Test-Path "stock_price_app.py") {
+  Write-Host "  - stock_price: http://127.0.0.1:8090/execute"
+}
 Write-Host ""
 Write-Host "Press Ctrl+C to stop all."
 
 $p1 = Start-Process -PassThru -NoNewWindow python -ArgumentList @("-m","uvicorn","random_app:app","--host","127.0.0.1","--port","8081")
 $p2 = Start-Process -PassThru -NoNewWindow python -ArgumentList @("-m","uvicorn","currency_app:app","--host","127.0.0.1","--port","8082")
 $p3 = Start-Process -PassThru -NoNewWindow python -ArgumentList @("-m","uvicorn","weather_app:app","--host","127.0.0.1","--port","8083")
+$p4 = $null
+if (Test-Path "stock_price_app.py") {
+  $p4 = Start-Process -PassThru -NoNewWindow python -ArgumentList @("-m","uvicorn","stock_price_app:app","--host","127.0.0.1","--port","8090")
+}
 
 try {
-  Wait-Process -Id @($p1.Id, $p2.Id, $p3.Id)
+  $ids = @($p1.Id, $p2.Id, $p3.Id)
+  if ($p4) { $ids += $p4.Id }
+  Wait-Process -Id $ids
 } finally {
-  foreach ($p in @($p1, $p2, $p3)) {
+  $procs = @($p1, $p2, $p3)
+  if ($p4) { $procs += $p4 }
+  foreach ($p in $procs) {
     try { if (!$p.HasExited) { Stop-Process -Id $p.Id -Force } } catch {}
   }
 }

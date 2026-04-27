@@ -4,6 +4,10 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
 
 class Request(BaseModel):
     min_val: int

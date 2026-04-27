@@ -218,16 +218,68 @@
       font-family: var(--mono);
       font-size: .78rem;
       line-height:1.4;
-      white-space: pre-wrap;
-      word-break: break-word;
+      white-space: pre;
       background: rgba(0,0,0,.18);
       border:1px solid var(--line);
       border-radius: 14px;
       padding: 12px;
-      max-height: 260px;
+      max-height: 220px;
       overflow:auto;
       color: rgba(234,240,255,.92);
     }
+    .prompt-grid{
+      display:grid;
+      gap:10px;
+    }
+    .prompt-title{
+      font-weight:900;
+      font-size:.98rem;
+      letter-spacing:.01em;
+    }
+    .kv{
+      display:grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap:10px;
+      align-items:start;
+      padding:10px 10px;
+      border:1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0,0,0,.14);
+    }
+    #tool-prompt.raw-open .kv{ display:none; }
+    #tool-prompt.raw-open .prompt-title{ display:none; }
+    #tool-prompt.raw-open .pill{ display:none; }
+    .k{
+      font-family: var(--mono);
+      font-size:.76rem;
+      color: rgba(234,240,255,.62);
+      text-transform: uppercase;
+      letter-spacing:.06em;
+      padding-top:2px;
+    }
+    .v{
+      font-family: var(--mono);
+      font-size:.82rem;
+      color: rgba(234,240,255,.95);
+      white-space: normal;
+      word-break: break-word;
+      line-height:1.45;
+    }
+    details.raw{
+      border:1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0,0,0,.10);
+      padding: 10px;
+    }
+    details.raw > summary{
+      cursor:pointer;
+      user-select:none;
+      color: rgba(234,240,255,.72);
+      font-weight:800;
+      font-size:.86rem;
+      list-style:none;
+    }
+    details.raw > summary::-webkit-details-marker{ display:none; }
     .muted{ color: rgba(234,240,255,.60); font-size:.86rem; line-height:1.35; }
 
     @media (max-width: 980px){
@@ -254,7 +306,13 @@
         </div>
         <div class="side-actions" style="margin-top:12px;">
           <button class="secondary" onclick="refreshTools()">목록 새로고침</button>
-          <button onclick="checkToolsHealth()">상태 확인</button>
+        </div>
+        <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <span class="muted" style="font-size:.82rem;">자동 상태 확인</span>
+          <label class="pill" style="cursor:pointer;">
+            <input id="auto-health" type="checkbox" style="accent-color: var(--accent);"/>
+            <span>polling</span>
+          </label>
         </div>
         <div id="tools-summary" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
           <span class="pill"><span class="dot"></span><span id="tools-count">-</span> tools</span>
@@ -265,8 +323,21 @@
 
       <div class="card">
         <div class="section-label">Prompt entry</div>
-        <div class="muted" style="margin-bottom:10px;">선택한 도구의 프롬프트 블록(URL/인자/설명)을 확인할 수 있어요.</div>
-        <pre id="tool-prompt" class="prompt">도구를 선택하세요.</pre>
+        <div class="muted" style="margin-bottom:10px;">선택한 도구의 프롬프트 블록(URL/인자/설명)을 확인할 수 있어요. (편집하려면 아래 System prompt에서 수정)</div>
+        <div id="tool-prompt" class="prompt-grid">
+          <div class="muted">도구를 선택하세요.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">System prompt</div>
+        <div class="muted" style="margin-bottom:10px;">여기서 프롬프트를 직접 수정/저장하면 다음 실행부터 동작이 바뀝니다.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <button class="secondary" onclick="loadSystemPrompt()">불러오기</button>
+          <button onclick="saveSystemPrompt()">저장</button>
+        </div>
+        <textarea id="system-prompt-editor" style="width:100%;min-height:220px;resize:vertical;background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:14px;color:var(--text);padding:12px;font-family:var(--mono);font-size:.82rem;line-height:1.45;outline:none;"></textarea>
+        <div id="system-prompt-hint" class="muted" style="margin-top:10px;font-size:.82rem;"></div>
       </div>
     </div>
 
@@ -321,9 +392,17 @@
     let tools = [];
     let toolHealth = new Map(); // id -> {ok,status,latencyMs,error}
     let selectedToolId = null;
+    let healthTimer = null;
 
     window.addEventListener('load', () => {
       refreshTools();
+      const auto = document.getElementById('auto-health');
+      auto.checked = true;
+      auto.addEventListener('change', () => {
+        if (auto.checked) startHealthPolling();
+        else stopHealthPolling();
+      });
+      startHealthPolling();
     });
 
     async function refreshTools() {
@@ -334,19 +413,69 @@
         toolHealth = new Map();
         document.getElementById('tools-health').textContent = '?';
         renderToolList();
+        // refresh also triggers a quick health refresh when polling is on
+        if (document.getElementById('auto-health')?.checked) {
+          checkToolsHealth();
+        }
       } catch (e) {
         document.getElementById('tool-list').innerHTML = `<div class="muted">도구 목록 로드 실패: ${escapeHtml(e.message)}</div>`;
       }
     }
 
+    function startHealthPolling() {
+      stopHealthPolling();
+      // immediate + interval
+      checkToolsHealth();
+      healthTimer = setInterval(() => checkToolsHealth(true), 30000);
+    }
+
+    function stopHealthPolling() {
+      if (healthTimer) clearInterval(healthTimer);
+      healthTimer = null;
+    }
+
+    async function loadSystemPrompt() {
+      const hint = document.getElementById('system-prompt-hint');
+      hint.textContent = '불러오는 중...';
+      try {
+        const res = await fetch('/api/tools/prompt');
+        const text = await res.text();
+        document.getElementById('system-prompt-editor').value = text;
+        hint.textContent = '불러오기 완료';
+      } catch (e) {
+        hint.textContent = '불러오기 실패: ' + e.message;
+      }
+    }
+
+    async function saveSystemPrompt() {
+      const hint = document.getElementById('system-prompt-hint');
+      hint.textContent = '저장 중...';
+      try {
+        const text = document.getElementById('system-prompt-editor').value;
+        const res = await fetch('/api/tools/prompt', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'text/plain' },
+          body: text
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        hint.textContent = '저장 완료 (도구 목록 갱신 중...)';
+        await refreshTools();
+        hint.textContent = '저장 완료';
+      } catch (e) {
+        hint.textContent = '저장 실패: ' + e.message;
+      }
+    }
+
     async function checkToolsHealth() {
       const btns = document.querySelectorAll('.side-actions button');
-      btns.forEach(b => b.disabled = true);
+      // Don't lock the UI during polling.
       try {
         const res = await fetch('/api/tools/health');
         const rows = await res.json();
         toolHealth = new Map(rows.map(r => [String(r.id), r]));
-        const okCount = rows.filter(r => r.ok).length;
+        const okCount = rows.filter(r => r.status >= 200 && r.status < 300).length;
         document.getElementById('tools-health').textContent = `${okCount}/${rows.length}`;
         renderToolList();
       } catch (e) {
@@ -366,8 +495,20 @@
       list.innerHTML = '';
       tools.forEach(t => {
         const h = toolHealth.get(String(t.id));
-        const dot = h ? (h.ok ? 'good' : 'bad') : '';
-        const statusText = h ? (h.ok ? `OK ${h.status} · ${h.latencyMs}ms` : `DOWN · ${escapeHtml(h.error || '')}`) : 'unknown';
+        let dot = 'warn';
+        let statusText = 'UNKNOWN';
+        if (h) {
+          if (h.status >= 200 && h.status < 300) {
+            dot = 'good';
+            statusText = 'HEALTH';
+          } else if (h.status === 404) {
+            dot = 'warn';
+            statusText = 'UNKNOWN';
+          } else {
+            dot = 'bad';
+            statusText = 'FAIL';
+          }
+        }
 
         const div = document.createElement('div');
         div.className = 'tool-item' + (String(t.id) === String(selectedToolId) ? ' active' : '');
@@ -377,7 +518,6 @@
             <div class="tool-name">${escapeHtml(t.name || ('Tool ' + t.id))}</div>
             <span class="pill"><span class="dot ${dot}"></span>${escapeHtml(statusText)}</span>
           </div>
-          <div class="tool-meta">${escapeHtml(t.url || '')}</div>
         `;
         list.appendChild(div);
       });
@@ -390,8 +530,51 @@
     function selectTool(id) {
       selectedToolId = String(id);
       const tool = tools.find(t => String(t.id) === String(selectedToolId));
-      document.getElementById('tool-prompt').textContent = tool?.promptBlock || '프롬프트 블록을 찾을 수 없습니다.';
+      const el = document.getElementById('tool-prompt');
+      if (!tool) {
+        el.innerHTML = `<div class="muted">프롬프트 블록을 찾을 수 없습니다.</div>`;
+        renderToolList();
+        return;
+      }
+
+      const health = toolHealth.get(String(tool.id));
+      let dot = 'warn', status = 'UNKNOWN';
+      if (health) {
+        if (health.status >= 200 && health.status < 300) { dot = 'good'; status = 'HEALTH'; }
+        else if (health.status === 404) { dot = 'warn'; status = 'UNKNOWN'; }
+        else { dot = 'bad'; status = 'FAIL'; }
+      }
+
+      el.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div class="prompt-title">${escapeHtml(tool.name || ('Tool ' + tool.id))}</div>
+          <span class="pill"><span class="dot ${dot}"></span>${escapeHtml(status)}</span>
+        </div>
+        <div class="kv">
+          <div class="k">URL</div>
+          <div class="v">${escapeHtml(tool.url || '')}</div>
+        </div>
+        <div class="kv">
+          <div class="k">ARGS</div>
+          <div class="v">${escapeHtml(tool.args || '')}</div>
+        </div>
+        <div class="kv">
+          <div class="k">DESC</div>
+          <div class="v">${escapeHtml(tool.description || '')}</div>
+        </div>
+        <details class="raw" ontoggle="toggleRawPrompt(this)">
+          <summary>원문 보기</summary>
+          <pre class="prompt">${escapeHtml(tool.promptBlock || '')}</pre>
+        </details>
+      `;
+      el.classList.remove('raw-open');
       renderToolList();
+    }
+
+    function toggleRawPrompt(detailsEl) {
+      const root = document.getElementById('tool-prompt');
+      if (!root) return;
+      root.classList.toggle('raw-open', detailsEl.open);
     }
 
     // ── 탭 전환 ──────────────────────────────────────────────────
@@ -422,7 +605,7 @@
         await consumeSse('/api/agent/run', {question}, logBox, (type, data, firstStep) => {
           if (type === 'step') {
             if (firstStep) logBox.innerHTML = '';
-            appendStep(logBox, data.message);
+            appendStep(logBox, data.message, data.dt_ms, data.total_ms);
           } else if (type === 'final') {
             answerBox.textContent = data.message;
             answerBox.style.display = 'block';
@@ -481,13 +664,14 @@
         await consumeSse('/api/tool-creator/create', {description, answers}, logBox, (type, data) => {
           if (type === 'step') {
             if (firstStep) { logBox.innerHTML = ''; firstStep = false; }
-            appendStep(logBox, data.message);
+            appendStep(logBox, data.message, data.dt_ms, data.total_ms);
           } else if (type === 'form') {
             const formData = JSON.parse(data.message);
             renderForm(formData.questions);
           } else if (type === 'final') {
             answerBox.textContent = data.message;
             answerBox.style.display = 'block';
+            refreshTools();
             btn.disabled = false;
           } else if (type === 'error') {
             errorBox.textContent = '오류: ' + data.message;
@@ -574,10 +758,13 @@
       }
     }
 
-    function appendStep(logBox, message) {
+    function appendStep(logBox, message, dtMs, totalMs) {
       const div = document.createElement('div');
       div.className = 'step-entry';
-      div.innerHTML = `<span class="step-icon">→</span><span>${escapeHtml(message)}</span>`;
+      const badge = (typeof dtMs === 'number')
+        ? `<span class="pill" style="margin-left:auto;opacity:.85;"><span class="dot"></span>${dtMs}ms</span>`
+        : '';
+      div.innerHTML = `<span class="step-icon">→</span><span>${escapeHtml(message)}</span>${badge}`;
       logBox.appendChild(div);
     }
 

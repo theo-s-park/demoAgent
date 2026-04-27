@@ -31,7 +31,9 @@
 
 [코드 작성 규칙]
 - FastAPI 변수명: 반드시 `app`
-- 엔드포인트: POST /execute 하나만
+- 엔드포인트:
+  - POST /execute (필수)
+  - GET /health (필수) — Python 코드에서 {"ok": True} 반환 (true 사용 금지)
 - 요청 파라미터: Pydantic BaseModel
 - 외부 API 키: os.getenv("KEY_NAME")
 - HTTP 호출: httpx.AsyncClient
