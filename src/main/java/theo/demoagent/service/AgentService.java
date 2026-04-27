@@ -59,7 +59,13 @@ public class AgentService {
 
             messages.add(Map.of("role", "assistant", "content", content));
 
-            LlmResponse response = parseLlmResponse(content);
+            LlmResponse response;
+            try {
+                response = parseLlmResponse(content);
+            } catch (Exception e) {
+                emit.accept(AgentEvent.error("JSON 파싱 실패: " + e.getMessage()));
+                return;
+            }
 
             if (response.thought() != null && !response.thought().isBlank()) {
                 emit.accept(AgentEvent.thought(response.thought()));
@@ -89,10 +95,8 @@ public class AgentService {
                 try {
                     toolResult = toolClient.call(url, response.args());
                 } catch (Exception e) {
-                    emit.accept(AgentEvent.step("Tool 호출 실패 (" + url + "): " + e.getMessage()));
-                    messages.add(Map.of("role", "user", "content",
-                            "Tool error: " + e.getMessage() + ". 도구 없이 답변하거나 다른 방법을 시도해주세요."));
-                    continue;
+                    emit.accept(AgentEvent.error("Tool 호출 실패 (" + url + "): " + e.getMessage()));
+                    return;
                 }
 
                 emit.accept(AgentEvent.step("Tool 결과: " + toolResult));
@@ -119,7 +123,9 @@ public class AgentService {
         // 2. 직접 파싱 시도
         try {
             return objectMapper.readValue(text, LlmResponse.class);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // try extraction below
+        }
 
         // 3. 텍스트 안에 섞인 JSON 추출 시도
         int start = text.indexOf('{');
@@ -127,11 +133,12 @@ public class AgentService {
         if (start != -1 && end > start) {
             try {
                 return objectMapper.readValue(text.substring(start, end + 1), LlmResponse.class);
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                // fallthrough
+            }
         }
 
-        // 4. 파싱 불가 → 전체 텍스트를 최종 답변으로 처리
-        return new LlmResponse("final_answer", null, null, null, content.trim());
+        throw new IllegalArgumentException("LLM 응답에서 JSON을 찾을 수 없습니다");
     }
 
     private String loadSystemPrompt() {

@@ -355,6 +355,7 @@
       <div class="app-header">
         <h1>promptAgent</h1>
         <span class="chip">(demo)</span>
+        <a href="/sequence.html" class="chip" style="text-decoration:none;border-color:#c7d2fe;background:var(--accent-soft);color:var(--accent);">sequence</a>
       </div>
 
       <div class="card">
@@ -432,7 +433,11 @@
             <input type="text" id="tool-desc" placeholder="추가할 기능을 설명하세요 (예: 주식 현재가 조회 기능 추가해줘)" />
             <button id="create-btn" onclick="startCreate()">추가</button>
           </div>
-          <div class="label">진행 상황</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div class="label" style="margin-bottom:0;">진행 상황</div>
+            <span id="creator-spinner" style="display:none;"><span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span></span>
+            <span id="creator-elapsed" style="font-family:var(--mono);font-size:.72rem;color:var(--muted);display:none;"></span>
+          </div>
           <div id="creator-log" class="log-box"><span class="log-placeholder">도구 추가 결과가 여기에 표시됩니다</span></div>
 
           <div id="creator-form" class="form-box">
@@ -565,10 +570,19 @@
         const div = document.createElement('div');
         div.className = 'tool-item' + (String(t.id) === String(selectedToolId) ? ' active' : '');
         div.onclick = () => selectTool(t.id);
+
+        const isDynamic = String(t.id || '').startsWith('dyn-');
+        const deleteBtn = isDynamic
+          ? `<button class="ghost" style="padding:6px 10px;font-size:.8rem" onclick="event.stopPropagation(); deleteDynamicTool('${escapeJs(t.name)}')">삭제</button>`
+          : '';
+
         div.innerHTML = `
           <div class="tool-row">
             <div class="tool-name">${escapeHtml(t.name || ('Tool ' + t.id))}</div>
-            <span class="pill"><span class="dot ${dot}"></span>${escapeHtml(statusText)}</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="pill"><span class="dot ${dot}"></span>${escapeHtml(statusText)}</span>
+              ${deleteBtn}
+            </div>
           </div>`;
         list.appendChild(div);
       });
@@ -696,6 +710,13 @@
       const answerBox = document.getElementById('creator-answer');
       const errorBox = document.getElementById('creator-error');
       const btn = document.getElementById('create-btn');
+      const descInput = document.getElementById('tool-desc');
+
+      const spinner = document.getElementById('creator-spinner');
+      const elapsed = document.getElementById('creator-elapsed');
+      spinner.style.display = 'inline';
+      elapsed.style.display = 'none';
+      const startTime = Date.now();
 
       if (Object.keys(answers).length === 0) {
         document.getElementById('tool-desc').placeholder = '';
@@ -704,6 +725,7 @@
       answerBox.style.display = 'none';
       errorBox.style.display = 'none';
       btn.disabled = true;
+      descInput.disabled = true;
 
       let firstStep = true;
       try {
@@ -714,21 +736,34 @@
           } else if (type === 'form') {
             const formData = JSON.parse(data.message);
             renderForm(formData.questions);
+            // 사용자 입력 단계로 전환 → 스피너/elapsed는 잠시 숨기고 입력 가능하게
+            spinner.style.display = 'none';
+            elapsed.style.display = 'none';
+            btn.disabled = false;
+            descInput.disabled = false;
           } else if (type === 'final') {
             answerBox.textContent = data.message;
             answerBox.style.display = 'block';
             refreshTools();
             btn.disabled = false;
+            descInput.disabled = false;
+            spinner.style.display = 'none';
+            elapsed.textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+            elapsed.style.display = 'inline';
           } else if (type === 'error') {
             errorBox.textContent = '오류: ' + data.message;
             errorBox.style.display = 'block';
             btn.disabled = false;
+            descInput.disabled = false;
+            spinner.style.display = 'none';
           }
         });
       } catch (e) {
         errorBox.textContent = '연결 오류: ' + e.message;
         errorBox.style.display = 'block';
         btn.disabled = false;
+        descInput.disabled = false;
+        spinner.style.display = 'none';
       }
     }
 
@@ -764,6 +799,60 @@
       });
       formBox.style.display = 'block';
       fields.querySelector('input')?.focus();
+    }
+
+    // ── 동적 도구 삭제 ───────────────────────────────────────────
+    async function deleteDynamicTool(toolName) {
+      if (!toolName) return;
+      if (!confirm(`도구를 삭제할까요? (${toolName})`)) return;
+
+      switchTab('creator');
+
+      const logBox = document.getElementById('creator-log');
+      const answerBox = document.getElementById('creator-answer');
+      const errorBox = document.getElementById('creator-error');
+      const btn = document.getElementById('create-btn');
+      const descInput = document.getElementById('tool-desc');
+
+      const spinner = document.getElementById('creator-spinner');
+      const elapsed = document.getElementById('creator-elapsed');
+      spinner.style.display = 'inline';
+      elapsed.style.display = 'none';
+      const startTime = Date.now();
+
+      logBox.innerHTML = '<span class="spinner"></span> 삭제 중...';
+      answerBox.style.display = 'none';
+      errorBox.style.display = 'none';
+      btn.disabled = true;
+      descInput.disabled = true;
+
+      let firstStep = true;
+      try {
+        await consumeSse('/api/dynamic-tools/delete', {tool_name: toolName}, logBox, (type, data) => {
+          if (type === 'step') {
+            if (firstStep) { logBox.innerHTML = ''; firstStep = false; }
+            appendStep(logBox, data.message, data.dt_ms);
+          } else if (type === 'final') {
+            answerBox.textContent = data.message;
+            answerBox.style.display = 'block';
+            refreshTools();
+            spinner.style.display = 'none';
+            elapsed.textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+            elapsed.style.display = 'inline';
+          } else if (type === 'error') {
+            errorBox.textContent = '오류: ' + data.message;
+            errorBox.style.display = 'block';
+            spinner.style.display = 'none';
+          }
+        });
+      } catch (e) {
+        errorBox.textContent = '연결 오류: ' + e.message;
+        errorBox.style.display = 'block';
+        spinner.style.display = 'none';
+      } finally {
+        btn.disabled = false;
+        descInput.disabled = false;
+      }
     }
 
     // ── 공통 유틸 ────────────────────────────────────────────────
@@ -891,6 +980,14 @@
 
     function escapeHtml(str) {
       return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function escapeJs(str) {
+      return String(str ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r');
     }
   </script>
 </body>

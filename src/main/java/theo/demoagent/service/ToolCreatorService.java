@@ -6,6 +6,8 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import theo.demoagent.client.OpenAiClient;
+import theo.demoagent.domain.DynamicTool;
+import theo.demoagent.domain.DynamicToolRepository;
 import theo.demoagent.dto.AgentEvent;
 import theo.demoagent.dto.ToolCreatorLlmResponse;
 
@@ -14,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -21,19 +24,24 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 @Service
 public class ToolCreatorService {
 
     private final OpenAiClient openAiClient;
+    private final DynamicToolRepository dynamicToolRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AtomicInteger nextPort = new AtomicInteger(8090);
 
     @Value("${user.dir}")
     private String baseDir;
 
-    public ToolCreatorService(OpenAiClient openAiClient) {
+    private static final Pattern SAFE_TOOL_NAME = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]{0,40}$");
+
+    public ToolCreatorService(OpenAiClient openAiClient, DynamicToolRepository dynamicToolRepository) {
         this.openAiClient = openAiClient;
+        this.dynamicToolRepository = dynamicToolRepository;
     }
 
     public void create(String description, Map<String, String> answers, Consumer<AgentEvent> emit) {
@@ -88,9 +96,14 @@ public class ToolCreatorService {
 
         if ("create_tool".equals(response.action())) {
             int port = nextPort.getAndIncrement();
+            String toolName = response.toolName() == null ? "" : response.toolName().trim();
+            if (!SAFE_TOOL_NAME.matcher(toolName).matches()) {
+                emit.accept(AgentEvent.error("toolName이 안전한 형식이 아닙니다: " + toolName));
+                return;
+            }
 
             emit.accept(AgentEvent.step("코드 파일 저장 중..."));
-            if (!writeToolFile(response.toolName(), response.code(), emit)) return;
+            if (!writeToolFile(toolName, response.code(), emit)) return;
 
             emit.accept(AgentEvent.step("환경 변수 저장 중..."));
             updateEnvFile(response.envVars(), emit);
@@ -99,11 +112,8 @@ public class ToolCreatorService {
             updateSystemPrompt(response.promptEntry(), port, emit);
 
             emit.accept(AgentEvent.step("도구 서버 시작 중..."));
-            boolean started = startToolProcess(response.toolName(), port, emit);
-            if (!started) {
-                emit.accept(AgentEvent.error("도구 서버 자동 시작 실패: " + response.toolName() + " (port " + port + ")"));
-                return;
-            }
+            Process proc = startToolProcess(toolName, port, response.envVars(), emit);
+            if (proc == null) return;
 
             emit.accept(AgentEvent.step("헬스 체크 중..."));
             boolean healthy = waitForHealth(port, emit);
@@ -112,7 +122,13 @@ public class ToolCreatorService {
                 return;
             }
 
-            emit.accept(AgentEvent.finalAnswer(response.toolName() + " 도구가 활성화되었습니다 (port " + port + "). 이제 에이전트에게 질문해보세요!"));
+            DynamicTool saved = dynamicToolRepository.save(new DynamicTool(toolName, port));
+            try {
+                saved.setPid(proc.pid());
+                dynamicToolRepository.save(saved);
+            } catch (Exception ignored) {}
+
+            emit.accept(AgentEvent.finalAnswer(toolName + " 도구가 활성화되었습니다 (port " + port + "). 이제 에이전트에게 질문해보세요!"));
         }
     }
 
@@ -255,23 +271,37 @@ public class ToolCreatorService {
         }
     }
 
-    private boolean startToolProcess(String toolName, int port, Consumer<AgentEvent> emit) {
+    private Process startToolProcess(String toolName, int port, Map<String, String> envVars, Consumer<AgentEvent> emit) {
         try {
             Path toolDir = Path.of(baseDir, "tool-server");
             String python = resolvePythonPath(toolDir);
 
-            new ProcessBuilder(python, "-m", "uvicorn", toolName + "_app:app", "--host", "0.0.0.0", "--port", String.valueOf(port))
+            ProcessBuilder pb = new ProcessBuilder(
+                    python, "-m", "uvicorn",
+                    toolName + "_app:app",
+                    "--host", "0.0.0.0",
+                    "--port", String.valueOf(port)
+            )
                     .directory(toolDir.toFile())
-                    .redirectErrorStream(true)
-                    .start();
+                    .redirectErrorStream(true);
+
+            // Inherit current env + load .env/.env.local + merge new env_vars
+            Map<String, String> merged = new HashMap<>();
+            merged.putAll(readDotEnv(Path.of(baseDir, ".env")));
+            merged.putAll(readDotEnv(Path.of(baseDir, ".env.local")));
+            if (envVars != null) merged.putAll(envVars);
+            pb.environment().putAll(merged);
+
+            Process p = pb.start();
 
             emit.accept(AgentEvent.step("프로세스 시작 요청 완료"));
-            return true;
+            return p;
         } catch (Exception e) {
             emit.accept(AgentEvent.step(
                     "자동 시작 실패. 수동 실행: cd tool-server && python -m uvicorn " + toolName + "_app:app --port " + port
             ));
-            return false;
+            emit.accept(AgentEvent.error("도구 서버 자동 시작 실패: " + toolName + " (port " + port + ")"));
+            return null;
         }
     }
 
@@ -313,6 +343,26 @@ public class ToolCreatorService {
         }
 
         return "python";
+    }
+
+    private Map<String, String> readDotEnv(Path path) {
+        Map<String, String> out = new HashMap<>();
+        try {
+            if (!Files.exists(path)) return out;
+            for (String line : Files.readAllLines(path)) {
+                String s = line.trim();
+                if (s.isEmpty() || s.startsWith("#")) continue;
+                int idx = s.indexOf('=');
+                if (idx <= 0) continue;
+                String k = s.substring(0, idx).trim();
+                String v = s.substring(idx + 1).trim();
+                if ((v.startsWith("\"") && v.endsWith("\"")) || (v.startsWith("'") && v.endsWith("'"))) {
+                    v = v.substring(1, v.length() - 1);
+                }
+                if (!k.isBlank()) out.put(k, v);
+            }
+        } catch (Exception ignored) {}
+        return out;
     }
 
     private String loadCreatorPrompt() {

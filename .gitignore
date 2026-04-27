@@ -40,6 +40,9 @@ out/
 .env
 .env.local
 
+### Runtime state ###
+tools.db
+
 ### Python ###
 .venv/
 __pycache__/
