@@ -1,6 +1,5 @@
 package theo.demoagent.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -26,6 +25,8 @@ class AgentServiceTest {
     @Mock
     ToolClient toolClient;
 
+    private static final String RANDOM_URL = "http://localhost:8081/execute";
+
     @Test
     void finalAnswerOnFirstCall() {
         when(openAiClient.chat(any())).thenReturn("{\"action\":\"final_answer\",\"answer\":\"42\"}");
@@ -39,9 +40,9 @@ class AgentServiceTest {
     @Test
     void toolCallThenFinalAnswer() {
         when(openAiClient.chat(any()))
-                .thenReturn("{\"action\":\"call\",\"tool\":\"random\",\"args\":{\"min_val\":1,\"max_val\":10}}")
+                .thenReturn("{\"action\":\"call\",\"url\":\"" + RANDOM_URL + "\",\"args\":{\"min_val\":1,\"max_val\":10}}")
                 .thenReturn("{\"action\":\"final_answer\",\"answer\":\"The number is 7\"}");
-        when(toolClient.call(eq("random"), any())).thenReturn("{\"value\":7}");
+        when(toolClient.call(eq(RANDOM_URL), any())).thenReturn("{\"value\":7}");
 
         List<AgentEvent> events = collect("random number 1 to 10");
 
@@ -52,7 +53,7 @@ class AgentServiceTest {
     @Test
     void maxIterationsExceeded() {
         when(openAiClient.chat(any()))
-                .thenReturn("{\"action\":\"call\",\"tool\":\"random\",\"args\":{\"min_val\":1,\"max_val\":10}}");
+                .thenReturn("{\"action\":\"call\",\"url\":\"" + RANDOM_URL + "\",\"args\":{\"min_val\":1,\"max_val\":10}}");
         when(toolClient.call(any(), any())).thenReturn("{\"value\":5}");
 
         List<AgentEvent> events = collect("question");
@@ -74,10 +75,10 @@ class AgentServiceTest {
     @Test
     void toolCallFailure() {
         when(openAiClient.chat(any()))
-                .thenReturn("{\"action\":\"call\",\"tool\":\"weather\",\"args\":{\"lat\":37.5,\"lon\":127.0}}");
+                .thenReturn("{\"action\":\"call\",\"url\":\"" + RANDOM_URL + "\",\"args\":{}}");
         when(toolClient.call(any(), any())).thenThrow(new RuntimeException("Connection refused"));
 
-        List<AgentEvent> events = collect("weather?");
+        List<AgentEvent> events = collect("question");
 
         assertThat(last(events).type()).isEqualTo("error");
         assertThat(last(events).message()).contains("Tool 호출 실패");

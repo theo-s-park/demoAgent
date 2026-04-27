@@ -64,18 +64,18 @@ public class AgentService {
             }
 
             if ("call".equals(response.action())) {
-                emit.accept(AgentEvent.step("Tool 호출: " + response.tool() + " " + response.args()));
+                emit.accept(AgentEvent.step("Tool 호출: " + response.url() + " " + response.args()));
 
                 String toolResult;
                 try {
-                    toolResult = toolClient.call(response.tool(), response.args());
+                    toolResult = toolClient.call(response.url(), response.args());
                 } catch (Exception e) {
-                    emit.accept(AgentEvent.error("Tool 호출 실패 (" + response.tool() + "): " + e.getMessage()));
+                    emit.accept(AgentEvent.error("Tool 호출 실패 (" + response.url() + "): " + e.getMessage()));
                     return;
                 }
 
                 emit.accept(AgentEvent.step("Tool 결과: " + toolResult));
-                messages.add(Map.of("role", "user", "content", "Tool '" + response.tool() + "' result: " + toolResult));
+                messages.add(Map.of("role", "user", "content", "Tool result: " + toolResult));
             } else {
                 emit.accept(AgentEvent.error("알 수 없는 action: " + response.action()));
                 return;
