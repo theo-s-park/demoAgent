@@ -1,0 +1,43 @@
+# 운영용 Compose — EC2 Linux에서 host 네트워크 사용
+# network_mode: host 덕분에 system-prompt.txt의 localhost URL이 그대로 동작
+services:
+  agent-server:
+    build: .
+    network_mode: "host"
+    env_file:
+      - path: .env
+        required: true
+      - path: .env.local
+        required: false
+    volumes:
+      - ./system-prompt.txt:/app/system-prompt.txt
+      - ./tool-server:/app/tool-server
+    restart: unless-stopped
+
+  tool-random:
+    build: ./tool-server
+    network_mode: "host"
+    command: python -m uvicorn random_app:app --host 0.0.0.0 --port 8081
+    restart: unless-stopped
+
+  tool-currency:
+    build: ./tool-server
+    network_mode: "host"
+    command: python -m uvicorn currency_app:app --host 0.0.0.0 --port 8082
+    env_file:
+      - path: .env
+        required: true
+      - path: .env.local
+        required: false
+    restart: unless-stopped
+
+  tool-weather:
+    build: ./tool-server
+    network_mode: "host"
+    command: python -m uvicorn weather_app:app --host 0.0.0.0 --port 8083
+    env_file:
+      - path: .env
+        required: true
+      - path: .env.local
+        required: false
+    restart: unless-stopped
