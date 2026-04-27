@@ -2,7 +2,9 @@ package theo.demoagent.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 import theo.demoagent.client.OpenAiClient;
 import theo.demoagent.dto.AgentEvent;
 import theo.demoagent.dto.ToolCreatorLlmResponse;
@@ -97,11 +99,20 @@ public class ToolCreatorService {
             updateSystemPrompt(response.promptEntry(), port, emit);
 
             emit.accept(AgentEvent.step("도구 서버 시작 중..."));
-            startToolProcess(response.toolName(), port, emit);
+            boolean started = startToolProcess(response.toolName(), port, emit);
+            if (!started) {
+                emit.accept(AgentEvent.error("도구 서버 자동 시작 실패: " + response.toolName() + " (port " + port + ")"));
+                return;
+            }
 
-            emit.accept(AgentEvent.finalAnswer(
-                    response.toolName() + " 도구가 포트 " + port + "에 추가되었습니다. 이제 에이전트에게 질문해보세요!"
-            ));
+            emit.accept(AgentEvent.step("헬스 체크 중..."));
+            boolean healthy = waitForHealth(port, emit);
+            if (!healthy) {
+                emit.accept(AgentEvent.error("도구 서버가 기동되지 않았습니다(health timeout): port " + port));
+                return;
+            }
+
+            emit.accept(AgentEvent.finalAnswer(response.toolName() + " 도구가 활성화되었습니다 (port " + port + "). 이제 에이전트에게 질문해보세요!"));
         }
     }
 
@@ -244,35 +255,64 @@ public class ToolCreatorService {
         }
     }
 
-    private void startToolProcess(String toolName, int port, Consumer<AgentEvent> emit) {
+    private boolean startToolProcess(String toolName, int port, Consumer<AgentEvent> emit) {
         try {
             Path toolDir = Path.of(baseDir, "tool-server");
-            String uvicorn = resolveUvicornPath(toolDir);
+            String python = resolvePythonPath(toolDir);
 
-            new ProcessBuilder(uvicorn, toolName + "_app:app", "--host", "0.0.0.0", "--port", String.valueOf(port))
+            new ProcessBuilder(python, "-m", "uvicorn", toolName + "_app:app", "--host", "0.0.0.0", "--port", String.valueOf(port))
                     .directory(toolDir.toFile())
                     .redirectErrorStream(true)
                     .start();
 
-            Thread.sleep(1000);
-            emit.accept(AgentEvent.step("서버 시작 완료 → http://localhost:" + port + "/execute"));
+            emit.accept(AgentEvent.step("프로세스 시작 요청 완료"));
+            return true;
         } catch (Exception e) {
             emit.accept(AgentEvent.step(
-                    "자동 시작 실패. 수동 실행: cd tool-server && uvicorn " + toolName + "_app:app --port " + port
+                    "자동 시작 실패. 수동 실행: cd tool-server && python -m uvicorn " + toolName + "_app:app --port " + port
             ));
+            return false;
         }
     }
 
-    private String resolveUvicornPath(Path toolDir) {
-        Path toolVenv = toolDir.resolve(".venv").resolve("Scripts").resolve("uvicorn");
-        if (Files.exists(toolVenv)) return toolVenv.toString();
+    private boolean waitForHealth(int port, Consumer<AgentEvent> emit) {
+        SimpleClientHttpRequestFactory rf = new SimpleClientHttpRequestFactory();
+        rf.setConnectTimeout(600);
+        rf.setReadTimeout(800);
+        RestClient client = RestClient.builder().requestFactory(rf).build();
+
+        String url = "http://localhost:" + port + "/health";
+        int attempts = 20;
+        for (int i = 0; i < attempts; i++) {
+            try {
+                int status = client.get().uri(url).retrieve().toBodilessEntity().getStatusCode().value();
+                if (status >= 200 && status < 300) {
+                    emit.accept(AgentEvent.step("헬스 체크 성공 → " + url));
+                    return true;
+                }
+            } catch (Exception ignored) {
+                // keep retrying
+            }
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private String resolvePythonPath(Path toolDir) {
+        Path toolPython = toolDir.resolve(".venv").resolve("Scripts").resolve("python.exe");
+        if (Files.exists(toolPython)) return toolPython.toString();
 
         if (baseDir != null) {
-            Path rootVenv = Path.of(baseDir).resolve(".venv").resolve("Scripts").resolve("uvicorn");
-            if (Files.exists(rootVenv)) return rootVenv.toString();
+            Path rootPython = Path.of(baseDir).resolve(".venv").resolve("Scripts").resolve("python.exe");
+            if (Files.exists(rootPython)) return rootPython.toString();
         }
 
-        return "uvicorn";
+        return "python";
     }
 
     private String loadCreatorPrompt() {

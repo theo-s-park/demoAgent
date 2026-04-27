@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 
 @RestController
 @RequestMapping("/api/tool-creator")
@@ -33,11 +34,20 @@ public class ToolCreatorController {
 
         executor.submit(() -> {
             try {
+                long t0 = System.nanoTime();
+                AtomicLong last = new AtomicLong(t0);
                 toolCreatorService.create(request.description(), request.answers(), event -> {
                     try {
+                        long now = System.nanoTime();
+                        long dtMs = (now - last.getAndSet(now)) / 1_000_000;
+                        long totalMs = (now - t0) / 1_000_000;
                         emitter.send(SseEmitter.event()
                                 .name(event.type())
-                                .data(objectMapper.writeValueAsString(Map.of("message", event.message()))));
+                                .data(objectMapper.writeValueAsString(Map.of(
+                                        "message", event.message(),
+                                        "dt_ms", dtMs,
+                                        "total_ms", totalMs
+                                ))));
                     } catch (IOException e) {
                         emitter.completeWithError(e);
                     }

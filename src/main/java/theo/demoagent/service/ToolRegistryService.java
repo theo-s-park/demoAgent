@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -41,9 +42,25 @@ public class ToolRegistryService {
         return parseToolsFromPrompt(prompt);
     }
 
+    public synchronized String updateSystemPrompt(String content) throws IOException {
+        if (baseDir == null) throw new IOException("baseDir is null");
+        String normalized = (content == null ? "" : content).replace("\r\n", "\n");
+
+        Path rootPrompt = Path.of(baseDir, "system-prompt.txt");
+        Files.writeString(rootPrompt, normalized, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
+        // Keep dev resource in sync when running from source tree
+        Path devPrompt = Path.of(baseDir, "src/main/resources/system-prompt.txt");
+        if (Files.exists(devPrompt)) {
+            Files.writeString(devPrompt, normalized, StandardOpenOption.TRUNCATE_EXISTING);
+        }
+        return normalized;
+    }
+
     /**
      * Very lightweight parser:
-     * - Finds blocks starting with "N. <name>"
+     * - Finds blocks starting with "N. <name>" (built-in tools)
+     * - Also supports "- <name>" (tools appended by ToolCreator prompt_entry)
      * - Captures URL/인자/설명 lines if present
      * - Keeps original block for UI preview
      */
@@ -56,16 +73,23 @@ public class ToolRegistryService {
         int end = prompt.indexOf("[응답 형식]", start);
         String section = end >= 0 ? prompt.substring(start, end) : prompt.substring(start);
 
-        Pattern blockStart = Pattern.compile("(?m)^(\\d+)\\.\\s*(.+?)\\s*$");
+        Pattern blockStart = Pattern.compile("(?m)^(?:(\\d+)\\.\\s*(.+?)|-\\s*(.+?))\\s*$");
         Matcher m = blockStart.matcher(section);
 
         List<Integer> starts = new ArrayList<>();
-        List<String> nums = new ArrayList<>();
         List<String> names = new ArrayList<>();
+        List<String> ids = new ArrayList<>();
         while (m.find()) {
             starts.add(m.start());
-            nums.add(m.group(1));
-            names.add(m.group(2).trim());
+            String num = m.group(1);
+            String numberedName = m.group(2);
+            String dashedName = m.group(3);
+
+            String name = (numberedName != null ? numberedName : dashedName).trim();
+            String id = (num != null && !num.isBlank()) ? num : "dyn-" + (ids.size() + 1);
+
+            ids.add(id);
+            names.add(name);
         }
         starts.add(section.length());
 
@@ -73,9 +97,9 @@ public class ToolRegistryService {
         Pattern argsP = Pattern.compile("(?m)^\\s*인자[^:]*:\\s*(.+?)\\s*$");
         Pattern descP = Pattern.compile("(?m)^\\s*설명:\\s*(.+?)\\s*$");
 
-        for (int i = 0; i < nums.size(); i++) {
+        for (int i = 0; i < ids.size(); i++) {
             String block = section.substring(starts.get(i), starts.get(i + 1)).trim();
-            String id = nums.get(i);
+            String id = ids.get(i);
             String name = names.get(i);
 
             String url = null;

@@ -10,6 +10,10 @@ from typing import Optional
 app = FastAPI()
 API_KEY = os.getenv("OPENWEATHERMAP_API_KEY")
 
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
 
 class Request(BaseModel):
     # Backward-compatible (current weather)
@@ -46,8 +50,17 @@ def _validate_forecast_window(start: dt.date, end: dt.date) -> None:
 
 async def _geocode_city(client: httpx.AsyncClient, query: str):
     url = "https://api.openweathermap.org/geo/1.0/direct"
-    resp = await client.get(url, params={"q": query, "limit": 1, "appid": API_KEY})
-    data = resp.json()
+    try:
+        resp = await client.get(url, params={"q": query, "limit": 1, "appid": API_KEY})
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"OpenWeatherMap geocoding network error: {type(e).__name__}: {e!r}",
+        ) from e
+    try:
+        data = resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail="OpenWeatherMap geocoding returned invalid JSON") from e
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail=f"OpenWeatherMap geocoding error: {data.get('message')}")
     if not data:
@@ -63,8 +76,17 @@ async def _geocode_city(client: httpx.AsyncClient, query: str):
 
 async def _current_weather(client: httpx.AsyncClient, lat: float, lon: float):
     url = "https://api.openweathermap.org/data/2.5/weather"
-    resp = await client.get(url, params={"lat": lat, "lon": lon, "appid": API_KEY, "units": "metric"})
-    data = resp.json()
+    try:
+        resp = await client.get(url, params={"lat": lat, "lon": lon, "appid": API_KEY, "units": "metric"})
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"OpenWeatherMap network error: {type(e).__name__}: {e!r}",
+        ) from e
+    try:
+        data = resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail="OpenWeatherMap returned invalid JSON") from e
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail=f"OpenWeatherMap error: {data.get('message')}")
     return {
@@ -77,8 +99,17 @@ async def _current_weather(client: httpx.AsyncClient, lat: float, lon: float):
 async def _forecast_range(client: httpx.AsyncClient, lat: float, lon: float, start: dt.date, end: dt.date):
     # OpenWeather 5-day / 3-hour forecast
     url = "https://api.openweathermap.org/data/2.5/forecast"
-    resp = await client.get(url, params={"lat": lat, "lon": lon, "appid": API_KEY, "units": "metric"})
-    data = resp.json()
+    try:
+        resp = await client.get(url, params={"lat": lat, "lon": lon, "appid": API_KEY, "units": "metric"})
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"OpenWeatherMap forecast network error: {type(e).__name__}: {e!r}",
+        ) from e
+    try:
+        data = resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail="OpenWeatherMap forecast returned invalid JSON") from e
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail=f"OpenWeatherMap forecast error: {data.get('message')}")
 
@@ -119,9 +150,10 @@ async def _forecast_range(client: httpx.AsyncClient, lat: float, lon: float, sta
 @app.post("/execute")
 async def execute(req: Request):
     if not API_KEY:
-        raise HTTPException(status_code=500, detail="OPENWEATHERMAP_API_KEY is not set")
+        raise HTTPException(status_code=500, detail="OPENWEATHERMAP_API_KEY is not set (tool-server env)")
 
-    async with httpx.AsyncClient(timeout=20) as client:
+    # trust_env=True enables HTTP(S)_PROXY / NO_PROXY environment variables (common in corp networks)
+    async with httpx.AsyncClient(timeout=20, trust_env=True) as client:
         # Forecast mode (city + date range)
         if req.query and (req.start_date or req.end_date):
             start = _parse_date(req.start_date) if req.start_date else _parse_date(req.end_date)
