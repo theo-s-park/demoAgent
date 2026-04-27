@@ -103,7 +103,12 @@ public class AgentService {
         if (json.startsWith("```")) {
             json = json.replaceAll("(?s)^```\\w*\\n?", "").replaceAll("```\\s*$", "").trim();
         }
-        return objectMapper.readValue(json, LlmResponse.class);
+        try {
+            return objectMapper.readValue(json, LlmResponse.class);
+        } catch (Exception e) {
+            // JSON이 아닌 텍스트 응답은 최종 답변으로 처리
+            return new LlmResponse("final_answer", null, null, null, content.trim());
+        }
     }
 
     private String loadSystemPrompt() {
