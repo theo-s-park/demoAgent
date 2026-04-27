@@ -15,7 +15,8 @@
       "Bash(git branch *)",
       "Bash(./gradlew test *)",
       "Bash(where java *)",
-      "Bash(java -version)"
+      "Bash(java -version)",
+      "Bash(git restore *)"
     ]
   },
   "enabledPlugins": {

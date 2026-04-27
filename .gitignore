@@ -38,4 +38,5 @@ out/
 
 ### Env ###
 .env
+.env.local
 
