@@ -1,12 +1,15 @@
 package theo.demoagent.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import theo.demoagent.client.OpenAiClient;
 import theo.demoagent.client.ToolClient;
 import theo.demoagent.dto.AgentEvent;
 import theo.demoagent.dto.LlmResponse;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -20,16 +23,18 @@ public class AgentService {
     private final OpenAiClient openAiClient;
     private final ToolClient toolClient;
     private final ObjectMapper objectMapper;
+    private final String systemPrompt;
 
     public AgentService(OpenAiClient openAiClient, ToolClient toolClient) {
         this.openAiClient = openAiClient;
         this.toolClient = toolClient;
         this.objectMapper = new ObjectMapper();
+        this.systemPrompt = loadSystemPrompt();
     }
 
     public void run(String question, Consumer<AgentEvent> emit) {
         List<Map<String, String>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", buildSystemPrompt()));
+        messages.add(Map.of("role", "system", "content", systemPrompt));
         messages.add(Map.of("role", "user", "content", question));
 
         for (int i = 0; i < MAX_ITERATIONS; i++) {
@@ -88,22 +93,12 @@ public class AgentService {
         return objectMapper.readValue(json, LlmResponse.class);
     }
 
-    private String buildSystemPrompt() {
-        return """
-                You are an AI assistant that can call external tools to answer questions.
-
-                When you need to call a tool, respond with ONLY valid JSON in this exact format (no markdown, no extra text):
-                {"action":"call","tool":"<tool_name>","args":{<key>:<value>}}
-
-                When you have enough information to answer, respond with ONLY valid JSON in this exact format:
-                {"action":"final_answer","answer":"<your complete answer>"}
-
-                Available tools:
-                - "random": Returns a random integer. Args: {"min_val": <integer>, "max_val": <integer>}
-                - "currency": Converts currency. Args: {"amount": <number>, "from": "<ISO_currency_code>", "to": "<ISO_currency_code>"}
-                - "weather": Returns current weather. Args: {"lat": <number>, "lon": <number>}
-
-                Never include markdown code blocks or any text outside the JSON object.
-                """;
+    private static String loadSystemPrompt() {
+        try {
+            ClassPathResource resource = new ClassPathResource("system-prompt.txt");
+            return new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException("system-prompt.txt를 찾을 수 없습니다.", e);
+        }
     }
 }

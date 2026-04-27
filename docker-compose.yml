@@ -1,8 +1,23 @@
 services:
-  tool-server:
+  tool-random:
     build: ./tool-server
+    command: uvicorn random_app:app --host 0.0.0.0 --port 8081
     ports:
       - "8081:8081"
+
+  tool-currency:
+    build: ./tool-server
+    command: uvicorn currency_app:app --host 0.0.0.0 --port 8082
+    ports:
+      - "8082:8082"
+    env_file:
+      - .env
+
+  tool-weather:
+    build: ./tool-server
+    command: uvicorn weather_app:app --host 0.0.0.0 --port 8083
+    ports:
+      - "8083:8083"
     env_file:
       - .env
 
@@ -13,6 +28,10 @@ services:
     env_file:
       - .env
     environment:
-      - TOOL_SERVER_URL=http://tool-server:8081
+      - TOOL_URL_RANDOM=http://tool-random:8081
+      - TOOL_URL_CURRENCY=http://tool-currency:8082
+      - TOOL_URL_WEATHER=http://tool-weather:8083
     depends_on:
-      - tool-server
+      - tool-random
+      - tool-currency
+      - tool-weather
