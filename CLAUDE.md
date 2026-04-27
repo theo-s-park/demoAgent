@@ -1,65 +1,91 @@
 # CLAUDE.md
 
-## 역할
-이 프로젝트를 구현하는 개발 Agent이다.
-모든 구현은 반드시 requirements.md를 따른다.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
----
+## Commands
 
-## 최우선 규칙
+```bash
+# Build (skip tests)
+./gradlew build -x test
 
-- requirements.md에 정의된 것만 구현한다
-- 정의되지 않은 기능은 추가하지 않는다
-- MVP 완성을 최우선으로 한다
+# Run application
+./gradlew bootRun
 
----
+# Run all tests
+./gradlew test
 
-## 핵심 동작
+# Run a single test class
+./gradlew test --tests "theo.demoagent.service.AgentServiceTest"
 
-Agent는 다음 흐름으로 동작한다:
+# Run a single test method
+./gradlew test --tests "theo.demoagent.service.AgentServiceTest.finalAnswerOnFirstCall"
 
-1. 사용자 입력 → LLM 호출
-2. LLM 응답 JSON 파싱
-3. action 분기
+# Run everything (Docker Compose)
+cp .env.example .env   # fill in your API keys
+docker-compose up --build
+```
 
-- "call" → Tool HTTP 호출
-- "final_answer" → 사용자 응답 반환
+On Windows use `gradlew.bat` instead of `./gradlew`.
 
-4. Tool 결과를 다시 LLM에 전달
-5. 최대 5회 반복
+## Tech Stack
 
----
+- **Java 25**, **Spring Boot 4.0.6**, Gradle 9
+- **Spring Web MVC** (`spring-boot-starter-webmvc`) — REST + SSE
+- **Jackson** (`jackson-databind`) — JSON parsing
+- **RestClient** (Spring 6.1+) — HTTP calls to OpenAI and Tool Server
+- **Lombok** — boilerplate reduction
+- **FastAPI** (Python 3.11) — standalone Tool Server
+- **Docker Compose** — runs Agent Server (:8080) + Tool Server (:8081) together
 
-## 필수 제약
+## Architecture
 
-- LLM 응답은 반드시 JSON으로 파싱한다
-- Tool은 allowlist 기반으로만 호출한다
-- Tool 실패 / JSON 파싱 실패 시 즉시 에러 반환
-- 최대 반복 횟수 초과 시 종료
+```
+Browser (index.html)
+  └── POST /api/agent/run  →  AgentController (SSE stream)
+        └── AgentService (agent loop, max 5 iterations)
+              ├── OpenAiClient  →  OpenAI API (gpt-4o)
+              └── ToolClient   →  Tool Server (FastAPI :8081)
+                                    ├── POST /tools/random
+                                    ├── POST /tools/currency  →  ExchangeRate-API
+                                    └── POST /tools/weather   →  OpenWeatherMap
+```
 
----
+**Agent loop:** LLM returns JSON with `action: call` (dispatch tool) or `action: final_answer` (stream result). Each step is pushed to the browser via SSE (`event: step | final | error`). The browser uses `fetch()` + `ReadableStream` to consume SSE from a POST response (not `EventSource`, which only supports GET).
 
-## 구현 범위
+## Package Structure
 
-- Agent Server
-- Tool Server
-- Web UI
-- Docker 실행 환경
-- EC2 단일 서버 배포
+```
+theo.demoagent
+├── controller/   AgentController — SSE endpoint
+├── service/      AgentService   — agent loop logic
+├── client/       OpenAiClient, ToolClient — HTTP clients
+├── dto/          AgentRequest, AgentEvent, LlmResponse
+└── config/       WebConfig — CORS
+```
 
----
+```
+tool-server/
+├── main.py        FastAPI app with 3 tool endpoints
+└── requirements.txt
+```
 
-## 금지 사항
+Static Web UI: `src/main/resources/static/index.html`
 
-- DB 저장
-- 로그인 / 인증
-- 외부 API 연동
-- Agent 프레임워크 사용 (LangChain 등)
+## Environment Variables
 
----
+Copy `.env.example` → `.env` and fill in:
 
-## 목표
+```
+OPENAI_API_KEY=
+EXCHANGERATE_API_KEY=        # from exchangerate-api.com
+OPENWEATHERMAP_API_KEY=      # from openweathermap.org
+```
 
-다음 흐름이 동작해야 한다:
+`TOOL_SERVER_URL` defaults to `http://localhost:8081` (local) or `http://tool-server:8081` (Docker Compose, injected automatically).
 
-사용자 입력 → Tool 호출 → 결과 반환 → UI 출력
+## Key Constraints
+
+- `gradle.properties` sets `org.gradle.java.home` to BellSoft JDK 25 — don't change this, the system `JAVA_HOME` points to JDK 8.
+- `AgentService` creates its own `ObjectMapper` — `spring-boot-starter-webmvc` in Spring Boot 4.0 does not auto-configure `ObjectMapper` as a bean.
+- `DemoAgentApplicationTests` uses `@MockitoBean` on `OpenAiClient` and `ToolClient` to prevent context loading from attempting real HTTP connections.
+- The LLM response may wrap JSON in markdown code blocks (` ```json ... ``` `); `AgentService.parseLlmResponse()` strips these before parsing.

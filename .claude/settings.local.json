@@ -12,7 +12,10 @@
       "Bash(git push *)",
       "Bash(git remote *)",
       "Bash(git pull *)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "Bash(./gradlew test *)",
+      "Bash(where java *)",
+      "Bash(java -version)"
     ]
   },
   "enabledPlugins": {

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>demoAgent</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+
+    h1 { font-size: 1.6rem; color: #222; margin-bottom: 8px; }
+    .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 32px; }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 24px;
+      width: 100%;
+      max-width: 720px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus { border-color: #4f8ef7; }
+
+    button {
+      padding: 10px 20px;
+      background: #4f8ef7;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #3a7ae0; }
+    button:disabled { background: #a0bdf8; cursor: not-allowed; }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    #log-box {
+      background: #f8f9fa;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 80px;
+      margin-bottom: 20px;
+      font-size: 0.875rem;
+      color: #444;
+    }
+
+    .step-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .step-entry:last-child { border-bottom: none; }
+    .step-icon { color: #4f8ef7; flex-shrink: 0; }
+
+    #answer-box {
+      background: #f0f7ff;
+      border: 1px solid #c8e0ff;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 1rem;
+      color: #1a3a6b;
+      min-height: 60px;
+      margin-bottom: 12px;
+      white-space: pre-wrap;
+      display: none;
+    }
+
+    #error-box {
+      background: #fff5f5;
+      border: 1px solid #ffc9c9;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.875rem;
+      color: #c0392b;
+      display: none;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #4f8ef7;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <h1>demoAgent</h1>
+  <p class="subtitle">LLM이 Tool을 호출하는 과정을 실시간으로 확인하세요</p>
+
+  <div class="card">
+    <div class="input-row">
+      <input type="text" id="question" placeholder="질문을 입력하세요 (예: 서울 날씨 알려줘, 1~100 난수 뽑아줘)" />
+      <button id="run-btn" onclick="runAgent()">실행</button>
+    </div>
+
+    <div class="section-label">실행 과정</div>
+    <div id="log-box"><span style="color:#bbb">실행 결과가 여기에 표시됩니다</span></div>
+
+    <div class="section-label">최종 답변</div>
+    <div id="answer-box"></div>
+    <div id="error-box"></div>
+  </div>
+
+  <script>
+    const questionInput = document.getElementById('question');
+    const runBtn = document.getElementById('run-btn');
+    const logBox = document.getElementById('log-box');
+    const answerBox = document.getElementById('answer-box');
+    const errorBox = document.getElementById('error-box');
+
+    questionInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') runAgent();
+    });
+
+    async function runAgent() {
+      const question = questionInput.value.trim();
+      if (!question) return;
+
+      logBox.innerHTML = '<span class="spinner"></span> 실행 중...';
+      answerBox.style.display = 'none';
+      answerBox.textContent = '';
+      errorBox.style.display = 'none';
+      errorBox.textContent = '';
+      runBtn.disabled = true;
+
+      try {
+        const response = await fetch('/api/agent/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question })
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let currentEvent = '';
+        let firstStep = true;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              currentEvent = line.slice(6).trim();
+            } else if (line.startsWith('data:')) {
+              try {
+                const data = JSON.parse(line.slice(5).trim());
+                handleEvent(currentEvent, data, firstStep);
+                if (currentEvent === 'step') firstStep = false;
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (e) {
+        showError('연결 오류: ' + e.message);
+      } finally {
+        runBtn.disabled = false;
+      }
+    }
+
+    function handleEvent(type, data, firstStep) {
+      if (type === 'step') {
+        if (firstStep) logBox.innerHTML = '';
+        const div = document.createElement('div');
+        div.className = 'step-entry';
+        div.innerHTML = `<span class="step-icon">→</span><span>${escapeHtml(data.message)}</span>`;
+        logBox.appendChild(div);
+        logBox.scrollTop = logBox.scrollHeight;
+      } else if (type === 'final') {
+        answerBox.textContent = data.message;
+        answerBox.style.display = 'block';
+      } else if (type === 'error') {
+        showError(data.message);
+      }
+    }
+
+    function showError(msg) {
+      errorBox.textContent = '오류: ' + msg;
+      errorBox.style.display = 'block';
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+  </script>
+</body>
+</html>
