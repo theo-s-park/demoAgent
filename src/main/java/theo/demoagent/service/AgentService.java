@@ -59,13 +59,7 @@ public class AgentService {
 
             messages.add(Map.of("role", "assistant", "content", content));
 
-            LlmResponse response;
-            try {
-                response = parseLlmResponse(content);
-            } catch (Exception e) {
-                emit.accept(AgentEvent.error("JSON 파싱 실패: " + e.getMessage() + " | raw=" + content));
-                return;
-            }
+            LlmResponse response = parseLlmResponse(content);
 
             if (response.thought() != null && !response.thought().isBlank()) {
                 emit.accept(AgentEvent.thought(response.thought()));
@@ -77,20 +71,30 @@ public class AgentService {
             }
 
             if ("call".equals(response.action())) {
-                emit.accept(AgentEvent.step("Tool 호출: " + response.url() + " " + response.args()));
+                String url = response.url();
+                if (url == null || url.isBlank()) {
+                    messages.add(Map.of("role", "user", "content", "Tool error: url이 없습니다. 올바른 도구 URL을 지정해주세요."));
+                    continue;
+                }
+
+                emit.accept(AgentEvent.step("Tool 호출: " + url + " " + response.args()));
 
                 String toolResult;
                 try {
-                    toolResult = toolClient.call(response.url(), response.args());
+                    toolResult = toolClient.call(url, response.args());
                 } catch (Exception e) {
-                    emit.accept(AgentEvent.error("Tool 호출 실패 (" + response.url() + "): " + e.getMessage()));
-                    return;
+                    emit.accept(AgentEvent.step("Tool 호출 실패 (" + url + "): " + e.getMessage()));
+                    messages.add(Map.of("role", "user", "content",
+                            "Tool error: " + e.getMessage() + ". 도구 없이 답변하거나 다른 방법을 시도해주세요."));
+                    continue;
                 }
 
                 emit.accept(AgentEvent.step("Tool 결과: " + toolResult));
                 messages.add(Map.of("role", "user", "content", "Tool result: " + toolResult));
             } else {
-                emit.accept(AgentEvent.error("알 수 없는 action: " + response.action()));
+                // 알 수 없는 action은 텍스트 응답으로 간주해 최종 답변 처리
+                String answer = response.answer() != null ? response.answer() : content.trim();
+                emit.accept(AgentEvent.finalAnswer(answer));
                 return;
             }
         }
@@ -98,17 +102,30 @@ public class AgentService {
         emit.accept(AgentEvent.error("최대 반복 횟수(" + MAX_ITERATIONS + "회)를 초과했습니다."));
     }
 
-    private LlmResponse parseLlmResponse(String content) throws Exception {
-        String json = content.trim();
-        if (json.startsWith("```")) {
-            json = json.replaceAll("(?s)^```\\w*\\n?", "").replaceAll("```\\s*$", "").trim();
+    private LlmResponse parseLlmResponse(String content) {
+        String text = content.trim();
+
+        // 1. 마크다운 코드블록 제거
+        if (text.startsWith("```")) {
+            text = text.replaceAll("(?s)^```\\w*\\n?", "").replaceAll("```\\s*$", "").trim();
         }
+
+        // 2. 직접 파싱 시도
         try {
-            return objectMapper.readValue(json, LlmResponse.class);
-        } catch (Exception e) {
-            // JSON이 아닌 텍스트 응답은 최종 답변으로 처리
-            return new LlmResponse("final_answer", null, null, null, content.trim());
+            return objectMapper.readValue(text, LlmResponse.class);
+        } catch (Exception ignored) {}
+
+        // 3. 텍스트 안에 섞인 JSON 추출 시도
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        if (start != -1 && end > start) {
+            try {
+                return objectMapper.readValue(text.substring(start, end + 1), LlmResponse.class);
+            } catch (Exception ignored) {}
         }
+
+        // 4. 파싱 불가 → 전체 텍스트를 최종 답변으로 처리
+        return new LlmResponse("final_answer", null, null, null, content.trim());
     }
 
     private String loadSystemPrompt() {
