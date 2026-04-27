@@ -682,7 +682,12 @@
           }
         });
       } catch (e) {
-        errorBox.textContent = '연결 오류: ' + e.message;
+        const msg = (e && e.message) ? e.message : String(e || '');
+        if (msg === 'NO_FIRST_BYTE' || msg === 'AbortError') {
+          errorBox.textContent = '연결 오류: 서버로부터 응답이 없습니다 (타임아웃). 서버/네트워크 상태를 확인해주세요.';
+        } else {
+          errorBox.textContent = '연결 오류: ' + msg;
+        }
         errorBox.style.display = 'block';
         spinner.style.display = 'none';
       } finally {
@@ -768,7 +773,12 @@
           }
         });
       } catch (e) {
-        errorBox.textContent = '연결 오류: ' + e.message;
+        const msg = (e && e.message) ? e.message : String(e || '');
+        if (msg === 'NO_FIRST_BYTE' || msg === 'AbortError') {
+          errorBox.textContent = '연결 오류: 서버로부터 응답이 없습니다 (타임아웃). 서버/네트워크 상태를 확인해주세요.';
+        } else {
+          errorBox.textContent = '연결 오류: ' + msg;
+        }
         errorBox.style.display = 'block';
         btn.disabled = false;
         descInput.disabled = false;
@@ -855,7 +865,12 @@
           }
         });
       } catch (e) {
-        errorBox.textContent = '연결 오류: ' + e.message;
+        const msg = (e && e.message) ? e.message : String(e || '');
+        if (msg === 'NO_FIRST_BYTE' || msg === 'AbortError') {
+          errorBox.textContent = '연결 오류: 서버로부터 응답이 없습니다 (타임아웃). 서버/네트워크 상태를 확인해주세요.';
+        } else {
+          errorBox.textContent = '연결 오류: ' + msg;
+        }
         errorBox.style.display = 'block';
         spinner.style.display = 'none';
       } finally {
@@ -865,12 +880,27 @@
     }
 
     // ── 공통 유틸 ────────────────────────────────────────────────
-    async function consumeSse(url, body, logBox, onEvent) {
+    async function consumeSse(url, body, logBox, onEvent, opts = {}) {
+      const firstByteTimeoutMs = typeof opts.firstByteTimeoutMs === 'number' ? opts.firstByteTimeoutMs : 20000;
+      const ctrl = new AbortController();
+      let firstByteTimer = setTimeout(() => ctrl.abort(new Error('NO_FIRST_BYTE')), firstByteTimeoutMs);
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
       });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      // Surface request-id early for debugging.
+      const rid = response.headers.get('X-Request-Id');
+      if (rid) {
+        try { onEvent('meta', { message: `rid=${rid}` }); } catch (_) {}
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '', currentEvent = '';
@@ -878,6 +908,7 @@
       while (true) {
         const {done, value} = await reader.read();
         if (done) break;
+        if (firstByteTimer) { clearTimeout(firstByteTimer); firstByteTimer = null; }
         buffer += decoder.decode(value, {stream: true});
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';

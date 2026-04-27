@@ -7,6 +7,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional
 
+from env_loader import load_tool_server_env
+
+load_tool_server_env()
+
 app = FastAPI()
 API_KEY = os.getenv("OPENWEATHERMAP_API_KEY")
 

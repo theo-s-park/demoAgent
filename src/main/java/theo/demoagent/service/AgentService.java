@@ -3,6 +3,8 @@ package theo.demoagent.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import theo.demoagent.client.OpenAiClient;
 import theo.demoagent.client.ToolClient;
 import theo.demoagent.dto.AgentEvent;
@@ -21,6 +23,8 @@ import java.util.function.Consumer;
 @Service
 public class AgentService {
 
+    private static final Logger log = LoggerFactory.getLogger(AgentService.class);
+
     private static final int MAX_ITERATIONS = 5;
 
     private final OpenAiClient openAiClient;
@@ -37,6 +41,7 @@ public class AgentService {
     }
 
     public void run(String question, Consumer<AgentEvent> emit) {
+        log.info("[agent] start q_len={}", question == null ? 0 : question.length());
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(Map.of("role", "system", "content", loadSystemPrompt()));
         messages.add(Map.of(
@@ -51,8 +56,10 @@ public class AgentService {
 
             String content;
             try {
+                log.info("[agent] llm request iter={}", i + 1);
                 content = openAiClient.chat(messages);
             } catch (Exception e) {
+                log.warn("[agent] llm failed iter={} err={}", i + 1, e.toString());
                 emit.accept(AgentEvent.error("LLM 호출 실패: " + e.getMessage()));
                 return;
             }
@@ -82,6 +89,7 @@ public class AgentService {
                     messages.add(Map.of("role", "user", "content", "Tool error: url이 없습니다. 올바른 도구 URL을 지정해주세요."));
                     continue;
                 }
+                log.info("[agent] tool call url={}", url);
 
                 String prettyArgs;
                 try {
@@ -95,6 +103,7 @@ public class AgentService {
                 try {
                     toolResult = toolClient.call(url, response.args());
                 } catch (Exception e) {
+                    log.warn("[agent] tool failed url={} err={}", url, e.toString());
                     emit.accept(AgentEvent.error("Tool 호출 실패 (" + url + "): " + e.getMessage()));
                     return;
                 }

@@ -3,6 +3,10 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, ConfigDict
 
+from env_loader import load_tool_server_env
+
+load_tool_server_env()
+
 app = FastAPI()
 API_KEY = os.getenv("EXCHANGERATE_API_KEY")
 
@@ -20,6 +24,8 @@ class Request(BaseModel):
 
 @app.post("/execute")
 async def execute(req: Request):
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="EXCHANGERATE_API_KEY is not set (tool-server env)")
     url = f"https://v6.exchangerate-api.com/v6/{API_KEY}/pair/{req.from_currency}/{req.to}/{req.amount}"
     async with httpx.AsyncClient() as client:
         resp = await client.get(url)

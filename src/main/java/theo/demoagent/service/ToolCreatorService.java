@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import theo.demoagent.client.OpenAiClient;
 import theo.demoagent.domain.DynamicTool;
 import theo.demoagent.domain.DynamicToolRepository;
@@ -29,6 +31,8 @@ import java.util.regex.Pattern;
 @Service
 public class ToolCreatorService {
 
+    private static final Logger log = LoggerFactory.getLogger(ToolCreatorService.class);
+
     private final OpenAiClient openAiClient;
     private final DynamicToolRepository dynamicToolRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -45,6 +49,7 @@ public class ToolCreatorService {
     }
 
     public void create(String description, Map<String, String> answers, Consumer<AgentEvent> emit) {
+        log.info("[tool-create] start desc_len={} answers_keys={}", description == null ? 0 : description.length(), answers == null ? List.of() : answers.keySet());
         String creatorPrompt = loadCreatorPrompt();
 
         List<Map<String, String>> messages = new ArrayList<>();
@@ -55,8 +60,10 @@ public class ToolCreatorService {
 
         String content;
         try {
+            log.info("[tool-create] llm request");
             content = openAiClient.chat(messages);
         } catch (Exception e) {
+            log.warn("[tool-create] llm failed: {}", e.toString());
             emit.accept(AgentEvent.error("LLM 호출 실패: " + e.getMessage()));
             return;
         }
@@ -66,6 +73,7 @@ public class ToolCreatorService {
             String json = content.trim().replaceAll("(?s)^```\\w*\\n?", "").replaceAll("```\\s*$", "").trim();
             response = objectMapper.readValue(json, ToolCreatorLlmResponse.class);
         } catch (Exception e) {
+            log.warn("[tool-create] llm response parse failed: {}", e.toString());
             emit.accept(AgentEvent.error("응답 파싱 실패: " + content));
             return;
         }
@@ -73,6 +81,7 @@ public class ToolCreatorService {
         if ("need_info".equals(response.action())) {
             try {
                 List<Map<String, String>> normalized = normalizeQuestions(response.questions());
+                log.info("[tool-create] need_info toolName={} questions={}", response.toolName(), normalized.size());
                 String questionsJson = objectMapper.writeValueAsString(
                         Map.of("tool_name", response.toolName(), "questions", normalized)
                 );
@@ -98,9 +107,12 @@ public class ToolCreatorService {
             int port = nextPort.getAndIncrement();
             String toolName = response.toolName() == null ? "" : response.toolName().trim();
             if (!SAFE_TOOL_NAME.matcher(toolName).matches()) {
+                log.warn("[tool-create] unsafe toolName={}", toolName);
                 emit.accept(AgentEvent.error("toolName이 안전한 형식이 아닙니다: " + toolName));
                 return;
             }
+
+            log.info("[tool-create] create_tool name={} port={} env_keys={}", toolName, port, response.envVars() == null ? List.of() : response.envVars().keySet());
 
             emit.accept(AgentEvent.step("코드 파일 저장 중..."));
             if (!writeToolFile(toolName, response.code(), emit)) return;
@@ -114,6 +126,7 @@ public class ToolCreatorService {
             emit.accept(AgentEvent.step("도구 서버 시작 중..."));
             Process proc = startToolProcess(toolName, port, response.envVars(), emit);
             if (proc == null) return;
+            log.info("[tool-create] spawned name={} port={} pid={}", toolName, port, proc.pid());
 
             emit.accept(AgentEvent.step("헬스 체크 중..."));
             boolean healthy = waitForHealth(port, emit);
@@ -127,6 +140,7 @@ public class ToolCreatorService {
                 saved.setPid(proc.pid());
                 dynamicToolRepository.save(saved);
             } catch (Exception ignored) {}
+            log.info("[tool-create] persisted name={} port={} pid={}", toolName, port, saved.getPid());
 
             emit.accept(AgentEvent.finalAnswer(toolName + " 도구가 활성화되었습니다 (port " + port + "). 이제 에이전트에게 질문해보세요!"));
         }

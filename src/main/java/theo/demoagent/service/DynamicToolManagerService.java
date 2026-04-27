@@ -2,6 +2,8 @@ package theo.demoagent.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import theo.demoagent.domain.DynamicTool;
 import theo.demoagent.domain.DynamicToolRepository;
 import theo.demoagent.dto.AgentEvent;
@@ -17,6 +19,8 @@ import java.util.regex.Pattern;
 @Service
 public class DynamicToolManagerService {
 
+    private static final Logger log = LoggerFactory.getLogger(DynamicToolManagerService.class);
+
     private final DynamicToolRepository repository;
 
     @Value("${user.dir}")
@@ -31,19 +35,23 @@ public class DynamicToolManagerService {
     public void deleteByToolName(String toolName, Consumer<AgentEvent> emit) {
         String name = toolName == null ? "" : toolName.trim();
         if (!SAFE_TOOL_NAME.matcher(name).matches()) {
+            log.warn("[tool-delete] unsafe toolName={}", name);
             emit.accept(AgentEvent.error("toolName이 안전한 형식이 아닙니다: " + name));
             return;
         }
 
+        log.info("[tool-delete] start name={}", name);
         Optional<DynamicTool> opt = repository.findAll().stream()
                 .filter(t -> name.equals(t.getToolName()))
                 .findFirst();
         if (opt.isEmpty()) {
+            log.info("[tool-delete] not found name={}", name);
             emit.accept(AgentEvent.error("동적 도구를 찾을 수 없습니다: " + name));
             return;
         }
 
         DynamicTool tool = opt.get();
+        log.info("[tool-delete] found name={} port={} pid={}", tool.getToolName(), tool.getPort(), tool.getPid());
         emit.accept(AgentEvent.step("도구 프로세스 종료 중..."));
         stopProcess(tool.getPid(), emit);
 
@@ -55,6 +63,7 @@ public class DynamicToolManagerService {
 
         emit.accept(AgentEvent.step("DB에서 도구 제거 중..."));
         repository.delete(tool);
+        log.info("[tool-delete] deleted name={}", name);
 
         emit.accept(AgentEvent.finalAnswer("도구 삭제 완료: " + name));
     }

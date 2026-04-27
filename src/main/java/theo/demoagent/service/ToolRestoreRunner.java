@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import theo.demoagent.domain.DynamicTool;
 import theo.demoagent.domain.DynamicToolRepository;
 
@@ -16,6 +18,8 @@ import java.util.Map;
 
 @Component
 public class ToolRestoreRunner implements ApplicationRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(ToolRestoreRunner.class);
 
     private final DynamicToolRepository repository;
 
@@ -37,10 +41,11 @@ public class ToolRestoreRunner implements ApplicationRunner {
         mergedEnv.putAll(readDotEnv(Path.of(baseDir, ".env")));
         mergedEnv.putAll(readDotEnv(Path.of(baseDir, ".env.local")));
 
+        log.info("[tool-restore] start count={} toolDir={}", tools.size(), toolDir);
         for (DynamicTool tool : tools) {
             Path codeFile = toolDir.resolve(tool.getToolName() + "_app.py");
             if (!Files.exists(codeFile)) {
-                System.out.printf("[ToolRestore] 코드 파일 없음, 건너뜀: %s%n", codeFile);
+                log.warn("[tool-restore] missing code name={} path={}", tool.getToolName(), codeFile);
                 continue;
             }
             try {
@@ -57,9 +62,9 @@ public class ToolRestoreRunner implements ApplicationRunner {
                     tool.setPid(p.pid());
                     repository.save(tool);
                 } catch (Exception ignored) {}
-                System.out.printf("[ToolRestore] 복원 완료: %s (port %d, pid %d)%n", tool.getToolName(), tool.getPort(), p.pid());
+                log.info("[tool-restore] restored name={} port={} pid={}", tool.getToolName(), tool.getPort(), p.pid());
             } catch (Exception e) {
-                System.out.printf("[ToolRestore] 복원 실패: %s — %s%n", tool.getToolName(), e.getMessage());
+                log.warn("[tool-restore] failed name={} err={}", tool.getToolName(), e.toString());
             }
         }
     }

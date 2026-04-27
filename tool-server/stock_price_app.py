@@ -3,6 +3,10 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from env_loader import load_tool_server_env
+
+load_tool_server_env()
+
 app = FastAPI()
 ALPHAVANTAGE_API_KEY = os.getenv("ALPHAVANTAGE_API_KEY")
 
@@ -11,6 +15,8 @@ class StockRequest(BaseModel):
 
 @app.post("/execute")
 async def execute(req: StockRequest):
+    if not ALPHAVANTAGE_API_KEY:
+        raise HTTPException(status_code=500, detail="ALPHAVANTAGE_API_KEY is not set (tool-server env)")
     async with httpx.AsyncClient() as client:
         response = await client.get(
             "https://www.alphavantage.co/query",
