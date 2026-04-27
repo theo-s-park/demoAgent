@@ -15,7 +15,7 @@
    URL: http://localhost:8083/execute
    인자(현재): {"lat": <number>, "lon": <number>}
    인자(예보, 최대 5일): {"query": "<도시명>", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD"}
-   설명: 현재 날씨(좌표) 또는 도시명+날짜 범위(최대 5일) 예보를 조회
+   설명: 현재 날씨(좌표) 또는 도시명+날짜 범위(최대 5일) 예보를 조회(습도 포함)
 
 [응답 형식]
 도구 호출:

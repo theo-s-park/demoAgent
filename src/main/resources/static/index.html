@@ -51,8 +51,9 @@
       flex-direction: column;
       gap: 12px;
       min-width: 0;
-      max-height: calc(100vh - 48px);
-      overflow-y: auto;
+      /* Let the page scroll (avoid sidebar-only scrollbars) */
+      max-height: none;
+      overflow: visible;
     }
 
     /* ── Card ── */
@@ -63,7 +64,8 @@
       box-shadow: var(--shadow);
       padding: 16px;
       min-width: 0;
-      overflow: hidden;
+      /* Avoid clipping content at 100% zoom (allow internal scroll where needed) */
+      overflow: visible;
     }
 
     /* ── App header ── */
@@ -386,27 +388,15 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="label">System prompt</div>
-        <div class="hint">수정 지시를 입력하면 AI가 알아서 해당 부분만 바꿔줍니다.</div>
-        <div class="input-row" style="margin-bottom:10px;">
-          <input type="text" id="prompt-patch-input" placeholder="예: 날씨 도구에 습도도 포함해줘" />
-          <button id="prompt-patch-btn" onclick="patchPrompt()">적용</button>
-        </div>
-        <div class="btn-row">
-          <button class="ghost" onclick="loadSystemPrompt()">전체 보기</button>
-          <button onclick="saveSystemPrompt()">저장</button>
-        </div>
-        <textarea id="system-prompt-editor"></textarea>
-        <div id="system-prompt-hint" style="margin-top:8px;font-size:.8rem;color:var(--muted);"></div>
-      </div>
+      <!-- System prompt 편집은 메인 영역(프롬프트 변경 탭)으로 이동 -->
     </div>
 
     <!-- ── Main content ── -->
     <div>
       <div class="tabs">
-        <div class="tab active" onclick="switchTab('agent')">에이전트 질문</div>
-        <div class="tab" onclick="switchTab('creator')">도구 추가</div>
+        <div class="tab active" data-tab="agent" onclick="switchTab('agent')">에이전트 질문</div>
+        <div class="tab" data-tab="creator" onclick="switchTab('creator')">도구 추가</div>
+        <div class="tab" data-tab="prompt" onclick="switchTab('prompt')">프롬프트 변경</div>
       </div>
 
       <div class="card">
@@ -452,6 +442,22 @@
           <div id="creator-answer" class="answer-box"></div>
           <div id="creator-error" class="error-box"></div>
         </div>
+
+        <!-- 프롬프트 변경 패널 -->
+        <div id="panel-prompt" class="panel">
+          <div class="label">System prompt</div>
+          <div class="hint">수정 지시를 입력하면 AI가 알아서 해당 부분만 바꿔줍니다.</div>
+          <div class="input-row" style="margin-bottom:10px;">
+            <input type="text" id="prompt-patch-input" placeholder="예: 날씨 도구에 습도도 포함해줘" />
+            <button id="prompt-patch-btn" onclick="patchPrompt()">적용</button>
+          </div>
+          <div class="btn-row">
+            <button class="ghost" onclick="loadSystemPrompt()">전체 보기</button>
+            <button onclick="saveSystemPrompt()">저장</button>
+          </div>
+          <textarea id="system-prompt-editor"></textarea>
+          <div id="system-prompt-hint" style="margin-top:8px;font-size:.8rem;color:var(--muted);"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -473,6 +479,8 @@
       });
       startHealthPolling();
     });
+
+    // system prompt UI lives in the main content panel now
 
     async function refreshTools() {
       try {
@@ -622,9 +630,10 @@
 
     // ── 탭 전환 ──────────────────────────────────────────────────
     function switchTab(tab) {
-      document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['agent','creator'][i] === tab));
+      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       document.getElementById('panel-' + tab).classList.add('active');
+      if (tab === 'prompt') loadSystemPrompt();
     }
 
     // ── 에이전트 질문 ────────────────────────────────────────────
