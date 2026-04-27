@@ -362,7 +362,7 @@
         </div>
         <div class="tools-meta">
           <span class="pill"><span class="dot"></span><span id="tools-count">-</span> tools</span>
-          <span class="pill"><span class="dot warn"></span><span id="tools-health">?</span> health</span>
+          <span class="pill"><span class="dot warn" id="tools-health-dot"></span><span id="tools-health">?</span> health</span>
         </div>
         <div id="tool-list" class="tool-list"></div>
       </div>
@@ -519,9 +519,12 @@
         toolHealth = new Map(rows.map(r => [String(r.id), r]));
         const okCount = rows.filter(r => r.status >= 200 && r.status < 300).length;
         document.getElementById('tools-health').textContent = `${okCount}/${rows.length}`;
+        const healthDot = document.getElementById('tools-health-dot');
+        healthDot.className = 'dot ' + (okCount === rows.length && rows.length > 0 ? 'good' : okCount > 0 ? 'warn' : 'bad');
         renderToolList();
       } catch (e) {
         document.getElementById('tools-health').textContent = 'error';
+        document.getElementById('tools-health-dot').className = 'dot bad';
       }
     }
 
@@ -603,6 +606,7 @@
       const errorBox = document.getElementById('agent-error');
       const btn = document.getElementById('run-btn');
 
+      document.getElementById('question').placeholder = '';
       logBox.innerHTML = '<span class="spinner"></span> 실행 중...';
       answerBox.style.display = 'none';
       errorBox.style.display = 'none';
@@ -663,7 +667,10 @@
       const errorBox = document.getElementById('creator-error');
       const btn = document.getElementById('create-btn');
 
-      if (Object.keys(answers).length === 0) logBox.innerHTML = '<span class="spinner"></span> 분석 중...';
+      if (Object.keys(answers).length === 0) {
+        document.getElementById('tool-desc').placeholder = '';
+        logBox.innerHTML = '<span class="spinner"></span> 분석 중...';
+      }
       answerBox.style.display = 'none';
       errorBox.style.display = 'none';
       btn.disabled = true;
