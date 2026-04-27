@@ -3,156 +3,189 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>demoAgent — Sequence Diagrams</title>
+  <title>promptAgent — Sequence</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #0b1220;
-      --surface: #0f172a;
-      --panel: #111c33;
-      --border: rgba(148,163,184,.18);
-      --text: #e2e8f0;
-      --muted: #94a3b8;
-      --accent: #60a5fa;
-      --accent2: #a78bfa;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --border-focus: #6366f1;
+      --text: #1e293b;
+      --muted: #64748b;
+      --accent: #6366f1;
+      --accent-soft: #eef2ff;
       --good: #22c55e;
       --bad: #ef4444;
+      --warn: #f59e0b;
       --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      --radius: 14px;
-      --shadow: 0 18px 60px rgba(0,0,0,.35);
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
     body {
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(1200px 800px at 20% -10%, rgba(96,165,250,.22), transparent 60%),
-                  radial-gradient(900px 700px at 90% 0%, rgba(167,139,250,.18), transparent 55%),
-                  var(--bg);
+      background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 28px;
+      padding: 24px;
     }
-    .container { max-width: 1200px; margin: 0 auto; }
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    /* ── Top bar ── */
     .top {
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
-    .title h1 { font-size: 1.25rem; letter-spacing: -0.01em; }
-    .title p { color: var(--muted); margin-top: 6px; line-height: 1.4; }
-    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
-    a.btn, button.btn {
+    .top-left { display: flex; align-items: center; gap: 10px; }
+    .top-left h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -.01em; }
+    .chip {
+      font-family: var(--mono);
+      font-size: .70rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+      border: 1px solid #c7d2fe;
+    }
+    .actions { display: flex; gap: 8px; }
+
+    /* ── Buttons ── */
+    button, a.btn {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.03);
-      color: var(--text);
-      text-decoration: none;
+      gap: 6px;
+      padding: 10px 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: .9rem;
+      font-weight: 600;
       cursor: pointer;
-      font-weight: 650;
-      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+      text-decoration: none;
+      transition: background .15s, transform .1s;
+      white-space: nowrap;
     }
-    a.btn:hover, button.btn:hover { background: rgba(255,255,255,.06); border-color: rgba(148,163,184,.32); }
-    a.btn:active, button.btn:active { transform: translateY(1px); }
-    button.btn.primary { background: rgba(96,165,250,.14); border-color: rgba(96,165,250,.35); }
-    button.btn.primary:hover { background: rgba(96,165,250,.18); }
+    button:hover, a.btn:hover { background: #4f46e5; }
+    button:active, a.btn:active { transform: scale(.98); }
+    button.ghost, a.btn.ghost {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.ghost:hover, a.btn.ghost:hover { background: var(--bg); }
+
+    /* ── Grid ── */
     .grid {
       display: grid;
-      grid-template-columns: 320px minmax(0, 1fr);
+      grid-template-columns: 260px minmax(0, 1fr);
       gap: 16px;
       align-items: start;
     }
+    .grid > * { min-width: 0; }
+
+    /* ── Card ── */
     .card {
-      background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.02));
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      overflow: hidden;
+      padding: 16px;
+      min-width: 0;
     }
-    .left { padding: 14px; position: sticky; top: 18px; }
-    .tabs { display: flex; flex-direction: column; gap: 10px; }
+    .left { position: sticky; top: 24px; }
+
+    /* ── Tab list (vertical) ── */
+    .tab-list { display: flex; flex-direction: column; gap: 6px; }
     .tab {
-      padding: 12px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(148,163,184,.12);
-      background: rgba(255,255,255,.02);
+      padding: 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
       cursor: pointer;
-      transition: background .15s ease, border-color .15s ease;
+      transition: border-color .15s, background .15s;
+      user-select: none;
     }
-    .tab:hover { background: rgba(255,255,255,.05); border-color: rgba(148,163,184,.25); }
-    .tab.active { background: rgba(96,165,250,.14); border-color: rgba(96,165,250,.35); }
-    .tab .kicker {
+    .tab:hover { border-color: #c7d2fe; }
+    .tab.active {
+      background: var(--accent-soft);
+      border-color: #c7d2fe;
+    }
+    .tab-kicker {
       font-family: var(--mono);
-      font-size: .72rem;
-      color: rgba(226,232,240,.78);
-      letter-spacing: .06em;
+      font-size: .70rem;
+      color: var(--muted);
       text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 4px;
     }
-    .tab .name { margin-top: 4px; font-weight: 750; }
-    .tab .desc { margin-top: 6px; color: var(--muted); font-size: .86rem; line-height: 1.4; }
-    .right { padding: 14px; }
+    .tab-name { font-weight: 700; font-size: .9rem; color: var(--text); }
+    .tab.active .tab-name { color: var(--accent); }
+    .tab-desc { margin-top: 4px; color: var(--muted); font-size: .82rem; line-height: 1.4; }
+
+    /* ── Right panel ── */
     .panel-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    .pill {
-      display: inline-flex;
-      align-items: center;
       gap: 8px;
-      padding: 7px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(255,255,255,.02);
-      color: rgba(226,232,240,.86);
-      font-family: var(--mono);
-      font-size: .78rem;
-      white-space: nowrap;
+      margin-bottom: 12px;
     }
-    .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--accent); display: inline-block; }
-    .dot.purple { background: var(--accent2); }
-    .dot.good { background: var(--good); }
-    .mermaid-wrap {
-      background: rgba(2,6,23,.55);
-      border: 1px solid rgba(148,163,184,.14);
-      border-radius: 14px;
-      padding: 14px;
+    .panel-title { font-weight: 700; font-size: .95rem; }
+    .label {
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .diagram-wrap {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      background: var(--bg);
       overflow: auto;
-      min-height: 420px;
+      min-height: 360px;
+      margin-bottom: 12px;
     }
     pre.code {
-      margin-top: 12px;
-      padding: 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.45);
-      color: rgba(226,232,240,.92);
       font-family: var(--mono);
-      font-size: .82rem;
+      font-size: .78rem;
       line-height: 1.5;
-      overflow: auto;
-      max-height: 320px;
       white-space: pre;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      overflow: auto;
+      max-height: 260px;
+      color: var(--text);
     }
+
+    /* ── Toast ── */
     .toast {
       position: fixed;
       left: 50%;
-      bottom: 18px;
+      bottom: 20px;
       transform: translateX(-50%);
-      padding: 10px 12px;
+      padding: 10px 20px;
       border-radius: 999px;
-      border: 1px solid rgba(34,197,94,.35);
-      background: rgba(34,197,94,.12);
-      color: rgba(226,232,240,.95);
-      font-weight: 650;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: .88rem;
       display: none;
+      box-shadow: var(--shadow);
     }
-    @media (max-width: 980px) {
+
+    @media (max-width: 860px) {
+      body { padding: 16px; }
       .grid { grid-template-columns: 1fr; }
       .left { position: static; }
     }
@@ -161,36 +194,36 @@
 <body>
   <div class="container">
     <div class="top">
-      <div class="title">
-        <h1>demoAgent — Sequence Diagrams</h1>
-        <p>유저 유스케이스 3개를 탭으로 분리했습니다. 다이어그램/코드를 각각 복사해서 Mermaid에 바로 붙여넣을 수 있어요.</p>
+      <div class="top-left">
+        <a class="btn ghost" href="/">← 돌아가기</a>
+        <h1>promptAgent</h1>
+        <span class="chip">sequence</span>
       </div>
       <div class="actions">
-        <a class="btn" href="/" title="메인 UI로 이동">← Back</a>
-        <button class="btn primary" id="copy-btn" onclick="copyCurrent()">Copy Mermaid</button>
+        <button class="ghost" id="copy-btn" onclick="copyCurrent()">Mermaid 복사</button>
       </div>
     </div>
 
     <div class="grid">
       <div class="card left">
-        <div class="tabs" id="tabs"></div>
+        <div class="label">Use-cases</div>
+        <div class="tab-list" id="tab-list"></div>
       </div>
 
-      <div class="card right">
+      <div class="card">
         <div class="panel-top">
-          <div class="pill"><span class="dot" id="pill-dot"></span><span id="pill-title">—</span></div>
-          <div class="pill"><span class="dot purple"></span><span id="pill-hint">mermaid</span></div>
+          <div class="panel-title" id="panel-title">—</div>
         </div>
-
-        <div class="mermaid-wrap">
+        <div class="diagram-wrap">
           <div id="mermaid-target" class="mermaid"></div>
         </div>
+        <div class="label">Mermaid 소스</div>
         <pre id="code" class="code"></pre>
       </div>
     </div>
   </div>
 
-  <div id="toast" class="toast">Copied</div>
+  <div id="toast" class="toast">복사됨</div>
 
   <script type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
@@ -199,9 +232,8 @@
       {
         id: 'chat',
         kicker: 'Use-case ①',
-        name: 'Chat — Agent 실행',
+        name: 'Agent 실행',
         desc: 'SSE로 진행 단계/최종 답을 스트리밍. 필요 시 Tool 호출 루프.',
-        dot: 'var(--accent)',
         code: `sequenceDiagram
 autonumber
 actor User as User
@@ -235,9 +267,8 @@ UI-->>User: 답변 표시`
       {
         id: 'add-tool',
         kicker: 'Use-case ②',
-        name: 'Add Tool — 도구 추가',
+        name: '도구 추가',
         desc: '키 입력 → 코드 생성 → uvicorn spawn → /health gate → tools.db 저장.',
-        dot: 'var(--accent2)',
         code: `sequenceDiagram
 autonumber
 actor User as User
@@ -280,9 +311,8 @@ UI-->>User: 도구 활성화 + 목록 갱신`
       {
         id: 'patch-prompt',
         kicker: 'Use-case ③',
-        name: 'Patch Prompt — 프롬프트 변경',
+        name: '프롬프트 변경',
         desc: '지시 기반 patch(LLM) 또는 전체 텍스트 저장(PUT).',
-        dot: 'var(--good)',
         code: `sequenceDiagram
 autonumber
 actor User as User
@@ -313,50 +343,47 @@ UI-->>User: tool list refresh(프롬프트 기반)`
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'strict',
-      theme: 'dark',
+      theme: 'default',
       themeVariables: {
-        background: '#020617',
-        primaryColor: '#0b1220',
-        primaryTextColor: '#e2e8f0',
-        primaryBorderColor: 'rgba(148,163,184,.20)',
-        lineColor: 'rgba(226,232,240,.55)',
-        actorBorder: 'rgba(148,163,184,.25)',
-        actorTextColor: '#e2e8f0',
-        signalTextColor: '#e2e8f0',
-        noteTextColor: '#e2e8f0',
-        fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif'
+        fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif',
+        primaryColor: '#eef2ff',
+        primaryTextColor: '#1e293b',
+        primaryBorderColor: '#c7d2fe',
+        lineColor: '#94a3b8',
+        actorBorder: '#c7d2fe',
+        actorTextColor: '#1e293b',
+        signalTextColor: '#1e293b',
+        noteTextColor: '#1e293b',
+        noteBkgColor: '#f8fafc',
+        noteBorderColor: '#e2e8f0',
       }
     });
 
-    const tabsEl = document.getElementById('tabs');
-    const targetEl = document.getElementById('mermaid-target');
-    const codeEl = document.getElementById('code');
-    const pillTitle = document.getElementById('pill-title');
-    const pillDot = document.getElementById('pill-dot');
+    const tabListEl = document.getElementById('tab-list');
+    const targetEl  = document.getElementById('mermaid-target');
+    const codeEl    = document.getElementById('code');
+    const panelTitle = document.getElementById('panel-title');
 
     let current = diagrams[0].id;
 
     function renderTabs() {
-      tabsEl.innerHTML = '';
+      tabListEl.innerHTML = '';
       diagrams.forEach(d => {
         const div = document.createElement('div');
         div.className = 'tab' + (d.id === current ? ' active' : '');
         div.onclick = () => select(d.id);
         div.innerHTML = `
-          <div class="kicker">${d.kicker}</div>
-          <div class="name">${d.name}</div>
-          <div class="desc">${d.desc}</div>
-        `;
-        tabsEl.appendChild(div);
+          <div class="tab-kicker">${d.kicker}</div>
+          <div class="tab-name">${d.name}</div>
+          <div class="tab-desc">${d.desc}</div>`;
+        tabListEl.appendChild(div);
       });
     }
 
     async function renderDiagram() {
       const d = diagrams.find(x => x.id === current);
-      pillTitle.textContent = d.name;
-      pillDot.style.background = d.dot;
+      panelTitle.textContent = d.name;
       codeEl.textContent = d.code;
-
       targetEl.textContent = d.code;
       targetEl.removeAttribute('data-processed');
       await mermaid.run({ querySelector: '#mermaid-target' });
@@ -368,7 +395,7 @@ UI-->>User: tool list refresh(프롬프트 기반)`
       await renderDiagram();
     }
 
-    window.copyCurrent = async function copyCurrent() {
+    window.copyCurrent = async function() {
       const d = diagrams.find(x => x.id === current);
       await navigator.clipboard.writeText(d.code);
       const toast = document.getElementById('toast');
@@ -381,4 +408,3 @@ UI-->>User: tool list refresh(프롬프트 기반)`
   </script>
 </body>
 </html>
-
