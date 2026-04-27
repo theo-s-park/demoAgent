@@ -470,10 +470,14 @@
         const res = await fetch('/api/tools');
         tools = await res.json();
         document.getElementById('tools-count').textContent = String(tools.length);
-        toolHealth = new Map();
-        document.getElementById('tools-health').textContent = '?';
+        const autoOn = document.getElementById('auto-health')?.checked;
+        if (autoOn) {
+          toolHealth = new Map();
+          document.getElementById('tools-health').textContent = '?';
+          document.getElementById('tools-health-dot').className = 'dot warn';
+        }
         renderToolList();
-        if (document.getElementById('auto-health')?.checked) checkToolsHealth();
+        if (autoOn) checkToolsHealth();
       } catch (e) {
         document.getElementById('tool-list').innerHTML = `<div class="hint">도구 목록 로드 실패: ${escapeHtml(e.message)}</div>`;
       }
@@ -488,6 +492,7 @@
     function stopHealthPolling() {
       if (healthTimer) clearInterval(healthTimer);
       healthTimer = null;
+      // 마지막 상태 유지 — 상태 초기화 안 함
     }
 
     async function loadSystemPrompt() {
