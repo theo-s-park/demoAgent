@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,11 @@ public class AgentService {
     public void run(String question, Consumer<AgentEvent> emit) {
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(Map.of("role", "system", "content", loadSystemPrompt()));
+        messages.add(Map.of(
+                "role", "system",
+                "content", "현재 날짜/시간(KST, ISO-8601): " + OffsetDateTime.now(java.time.ZoneOffset.ofHours(9)) +
+                        "\n사용자가 연도를 생략한 날짜를 말하면, 올해(현재 연도)를 기준으로 해석하세요."
+        ));
         messages.add(Map.of("role", "user", "content", question));
 
         for (int i = 0; i < MAX_ITERATIONS; i++) {
@@ -57,7 +63,7 @@ public class AgentService {
             try {
                 response = parseLlmResponse(content);
             } catch (Exception e) {
-                emit.accept(AgentEvent.error("JSON 파싱 실패: " + content));
+                emit.accept(AgentEvent.error("JSON 파싱 실패: " + e.getMessage() + " | raw=" + content));
                 return;
             }
 
@@ -98,10 +104,17 @@ public class AgentService {
 
     private String loadSystemPrompt() {
         if (baseDir != null) {
-            Path filePath = Path.of(baseDir, "src/main/resources/system-prompt.txt");
-            if (Files.exists(filePath)) {
+            Path rootPrompt = Path.of(baseDir, "system-prompt.txt");
+            if (Files.exists(rootPrompt)) {
                 try {
-                    return Files.readString(filePath);
+                    return Files.readString(rootPrompt);
+                } catch (IOException ignored) {}
+            }
+
+            Path devPrompt = Path.of(baseDir, "src/main/resources/system-prompt.txt");
+            if (Files.exists(devPrompt)) {
+                try {
+                    return Files.readString(devPrompt);
                 } catch (IOException ignored) {}
             }
         }

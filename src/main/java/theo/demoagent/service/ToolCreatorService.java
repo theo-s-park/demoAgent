@@ -12,10 +12,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 @Service
 public class ToolCreatorService {
@@ -59,12 +62,24 @@ public class ToolCreatorService {
 
         if ("need_info".equals(response.action())) {
             try {
+                List<Map<String, String>> normalized = normalizeQuestions(response.questions());
                 String questionsJson = objectMapper.writeValueAsString(
-                        Map.of("tool_name", response.toolName(), "questions", response.questions())
+                        Map.of("tool_name", response.toolName(), "questions", normalized)
                 );
                 emit.accept(AgentEvent.form(questionsJson));
             } catch (Exception e) {
                 emit.accept(AgentEvent.error("질문 생성 실패"));
+            }
+            return;
+        }
+
+        if ("update_files".equals(response.action())) {
+            emit.accept(AgentEvent.step("파일 업데이트 중..."));
+            try {
+                int updated = updateFiles(response.files(), emit);
+                emit.accept(AgentEvent.finalAnswer("파일 업데이트 완료 (" + updated + "개). 변경 사항이 반영되도록 관련 서버/프로세스를 재시작하세요."));
+            } catch (Exception e) {
+                emit.accept(AgentEvent.error("파일 업데이트 실패: " + e.getMessage()));
             }
             return;
         }
@@ -99,6 +114,90 @@ public class ToolCreatorService {
         return sb.toString();
     }
 
+    private List<Map<String, String>> normalizeQuestions(com.fasterxml.jackson.databind.JsonNode questionsNode) {
+        if (questionsNode == null || questionsNode.isNull()) return List.of();
+
+        // Backward-compat: questions can be ["문자열", ...]
+        if (questionsNode.isArray() && questionsNode.size() > 0 && questionsNode.get(0).isTextual()) {
+            List<Map<String, String>> out = new ArrayList<>();
+            for (int i = 0; i < questionsNode.size(); i++) {
+                String label = questionsNode.get(i).asText("");
+                out.add(Map.of(
+                        "key", "Q" + (i + 1),
+                        "label", label,
+                        "help", "",
+                        "link", "",
+                        "where_used", ""
+                ));
+            }
+            return out;
+        }
+
+        // Preferred: questions: [{key,label,help,link,where_used}, ...]
+        if (questionsNode.isArray()) {
+            List<Map<String, String>> out = new ArrayList<>();
+            for (int i = 0; i < questionsNode.size(); i++) {
+                var q = questionsNode.get(i);
+                String key = q.path("key").asText("");
+                String label = q.path("label").asText("");
+                String help = q.path("help").asText("");
+                String link = q.path("link").asText("");
+                String whereUsed = q.path("where_used").asText("");
+
+                if (key.isBlank()) key = "Q" + (i + 1);
+                if (label.isBlank()) label = "추가 정보 입력 (" + key + ")";
+
+                out.add(Map.of(
+                        "key", key,
+                        "label", label,
+                        "help", help,
+                        "link", link,
+                        "where_used", whereUsed
+                ));
+            }
+            return out;
+        }
+
+        return List.of(Map.of(
+                "key", "Q1",
+                "label", "추가 정보가 필요합니다",
+                "help", questionsNode.asText(""),
+                "link", "",
+                "where_used", ""
+        ));
+    }
+
+    private static final Set<String> ALLOWED_UPDATE_PATHS = Set.of(
+            "system-prompt.txt",
+            "src/main/resources/system-prompt.txt",
+            "tool-server/weather_app.py"
+    );
+
+    private int updateFiles(List<theo.demoagent.dto.ToolFileUpdate> files, Consumer<AgentEvent> emit) throws IOException {
+        if (files == null || files.isEmpty()) {
+            throw new IllegalArgumentException("files is empty");
+        }
+
+        int updated = 0;
+        Set<String> seen = new HashSet<>();
+        for (var f : files) {
+            if (f == null) continue;
+            String rel = f.path();
+            if (rel == null || rel.isBlank()) continue;
+            if (!ALLOWED_UPDATE_PATHS.contains(rel)) {
+                throw new IllegalArgumentException("허용되지 않은 path: " + rel);
+            }
+            if (!seen.add(rel)) continue;
+
+            Path target = Path.of(baseDir, rel);
+            Files.createDirectories(target.getParent() != null ? target.getParent() : Path.of(baseDir));
+            Files.writeString(target, f.content() == null ? "" : f.content(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            updated++;
+            emit.accept(AgentEvent.step("업데이트: " + rel));
+        }
+        return updated;
+    }
+
     private boolean writeToolFile(String toolName, String code, Consumer<AgentEvent> emit) {
         try {
             Path file = Path.of(baseDir, "tool-server", toolName + "_app.py");
@@ -124,8 +223,14 @@ public class ToolCreatorService {
 
     private void updateSystemPrompt(String promptEntry, int port, Consumer<AgentEvent> emit) {
         try {
-            Path promptPath = Path.of(baseDir, "src/main/resources/system-prompt.txt");
-            String current = Files.readString(promptPath);
+            Path promptPath = Path.of(baseDir, "system-prompt.txt");
+            String current;
+            if (Files.exists(promptPath)) {
+                current = Files.readString(promptPath);
+            } else {
+                Path devPrompt = Path.of(baseDir, "src/main/resources/system-prompt.txt");
+                current = Files.exists(devPrompt) ? Files.readString(devPrompt) : "";
+            }
             String entry = "\n" + promptEntry.replace("{PORT}", String.valueOf(port));
 
             int insertIdx = current.indexOf("[응답 형식]");
@@ -142,7 +247,7 @@ public class ToolCreatorService {
     private void startToolProcess(String toolName, int port, Consumer<AgentEvent> emit) {
         try {
             Path toolDir = Path.of(baseDir, "tool-server");
-            String uvicorn = toolDir.resolve(".venv/Scripts/uvicorn").toString();
+            String uvicorn = resolveUvicornPath(toolDir);
 
             new ProcessBuilder(uvicorn, toolName + "_app:app", "--host", "0.0.0.0", "--port", String.valueOf(port))
                     .directory(toolDir.toFile())
@@ -156,6 +261,18 @@ public class ToolCreatorService {
                     "자동 시작 실패. 수동 실행: cd tool-server && uvicorn " + toolName + "_app:app --port " + port
             ));
         }
+    }
+
+    private String resolveUvicornPath(Path toolDir) {
+        Path toolVenv = toolDir.resolve(".venv").resolve("Scripts").resolve("uvicorn");
+        if (Files.exists(toolVenv)) return toolVenv.toString();
+
+        if (baseDir != null) {
+            Path rootVenv = Path.of(baseDir).resolve(".venv").resolve("Scripts").resolve("uvicorn");
+            if (Files.exists(rootVenv)) return rootVenv.toString();
+        }
+
+        return "uvicorn";
     }
 
     private String loadCreatorPrompt() {
