@@ -1,52 +1,28 @@
-name: Deploy to EC2
+name: Build
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - uses: actions/checkout@v4
+
+      - name: Setup BellSoft JDK 25
+        uses: actions/setup-java@v4
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
+          distribution: 'liberica'
+          java-version: '25'
 
-            # Docker 미설치 시 설치 (최초 1회)
-            if ! command -v docker &>/dev/null; then
-              sudo dnf install -y docker
-              sudo systemctl enable --now docker
-              sudo usermod -aG docker ec2-user
-            fi
+      - name: Build JAR
+        run: ./gradlew build -x test
 
-            # Docker Compose plugin 미설치 시 설치
-            if ! docker compose version &>/dev/null; then
-              ARCH=$(uname -m)
-              sudo curl -fsSL \
-                "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${ARCH}" \
-                -o /usr/local/lib/docker/cli-plugins/docker-compose
-              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-            fi
-
-            # 레포 clone (최초) 또는 pull
-            if [ ! -d ~/demoAgent ]; then
-              git clone https://github.com/theo-s-park/demoAgent.git ~/demoAgent
-            fi
-            cd ~/demoAgent
-            git pull origin main
-
-            # .env 파일 갱신 (Secrets → 파일)
-            cat > .env << 'ENVEOF'
-            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-            EXCHANGERATE_API_KEY=${{ secrets.EXCHANGERATE_API_KEY }}
-            OPENWEATHERMAP_API_KEY=${{ secrets.OPENWEATHERMAP_API_KEY }}
-            ENVEOF
-
-            # 빌드 & 실행
-            sudo docker compose -f docker-compose.prod.yml up --build -d
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: build/libs/*.jar
+          retention-days: 7
