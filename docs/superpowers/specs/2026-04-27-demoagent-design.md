@@ -35,29 +35,29 @@ Browser (index.html)
 
 ### Agent Server (Spring Boot :8080)
 
-| 패키지 | 파일 | 역할 |
-|--------|------|------|
-| `controller/` | `AgentController` | SSE 엔드포인트 `POST /api/agent/run` |
-| `controller/` | `ToolCreatorController` | SSE 엔드포인트 `POST /api/tool-creator/create` |
-| `service/` | `AgentService` | Agent 루프 (최대 5회), system-prompt.txt 매 요청 재로드 |
-| `service/` | `ToolCreatorService` | 메타 에이전트: 코드 생성, 파일 저장, 프로세스 시작 |
-| `client/` | `OpenAiClient` | OpenAI chat completion 호출 |
-| `client/` | `ToolClient` | LLM이 지정한 URL로 HTTP POST |
-| `dto/` | `AgentEvent` | SSE 이벤트 (step / final / error / form) |
-| `dto/` | `LlmResponse` | Agent LLM 응답 파싱 |
-| `dto/` | `ToolCreatorLlmResponse` | Tool Creator LLM 응답 파싱 |
-| `config/` | `WebConfig` | CORS |
+| 패키지        | 파일                     | 역할                                                    |
+| ------------- | ------------------------ | ------------------------------------------------------- |
+| `controller/` | `AgentController`        | SSE 엔드포인트 `POST /api/agent/run`                    |
+| `controller/` | `ToolCreatorController`  | SSE 엔드포인트 `POST /api/tool-creator/create`          |
+| `service/`    | `AgentService`           | Agent 루프 (최대 5회), system-prompt.txt 매 요청 재로드 |
+| `service/`    | `ToolCreatorService`     | 메타 에이전트: 코드 생성, 파일 저장, 프로세스 시작      |
+| `client/`     | `OpenAiClient`           | OpenAI chat completion 호출                             |
+| `client/`     | `ToolClient`             | LLM이 지정한 URL로 HTTP POST                            |
+| `dto/`        | `AgentEvent`             | SSE 이벤트 (step / final / error / form)                |
+| `dto/`        | `LlmResponse`            | Agent LLM 응답 파싱                                     |
+| `dto/`        | `ToolCreatorLlmResponse` | Tool Creator LLM 응답 파싱                              |
+| `config/`     | `WebConfig`              | CORS                                                    |
 
 **Static UI:** `src/main/resources/static/index.html`
 
 ### Tool Server (FastAPI, 독립 프로세스)
 
-| 도구 | 포트 | 파일 | 외부 API |
-|------|------|------|---------|
-| 난수 생성 | 8081 | `random_app.py` | 없음 |
-| 환율 변환 | 8082 | `currency_app.py` | ExchangeRate-API |
-| 날씨 조회 | 8083 | `weather_app.py` | OpenWeatherMap |
-| 동적 추가 | 8090+ | `{name}_app.py` | 도구에 따라 다름 |
+| 도구      | 포트  | 파일              | 외부 API         |
+| --------- | ----- | ----------------- | ---------------- |
+| 난수 생성 | 8081  | `random_app.py`   | 없음             |
+| 환율 변환 | 8082  | `currency_app.py` | ExchangeRate-API |
+| 날씨 조회 | 8083  | `weather_app.py`  | OpenWeatherMap   |
+| 동적 추가 | 8090+ | `{name}_app.py`   | 도구에 따라 다름 |
 
 모든 Tool은 `POST /execute` 단일 엔드포인트만 제공한다.
 
@@ -92,6 +92,7 @@ Browser (index.html)
 ## LLM 응답 JSON 구조
 
 ### Agent — Tool 호출
+
 ```json
 {
   "action": "call",
@@ -101,6 +102,7 @@ Browser (index.html)
 ```
 
 ### Agent — 최종 답변
+
 ```json
 {
   "action": "final_answer",
@@ -109,6 +111,7 @@ Browser (index.html)
 ```
 
 ### Tool Creator — 추가 정보 필요
+
 ```json
 {
   "action": "need_info",
@@ -118,6 +121,7 @@ Browser (index.html)
 ```
 
 ### Tool Creator — 코드 생성
+
 ```json
 {
   "action": "create_tool",
@@ -132,18 +136,18 @@ Browser (index.html)
 
 ## SSE 이벤트 타입
 
-| 이벤트 | 시점 | payload |
-|--------|------|---------|
-| `step` | 각 실행 단계 | `{ "message": "..." }` |
-| `final` | 최종 답변 | `{ "message": "..." }` |
-| `error` | 파싱 실패 / 호출 실패 / 루프 초과 | `{ "message": "..." }` |
-| `form` | Tool Creator — 추가 정보 요청 | `{ "message": "{\"tool_name\":\"...\",\"questions\":[...]}" }` |
+| 이벤트  | 시점                              | payload                                                        |
+| ------- | --------------------------------- | -------------------------------------------------------------- |
+| `step`  | 각 실행 단계                      | `{ "message": "..." }`                                         |
+| `final` | 최종 답변                         | `{ "message": "..." }`                                         |
+| `error` | 파싱 실패 / 호출 실패 / 루프 초과 | `{ "message": "..." }`                                         |
+| `form`  | Tool Creator — 추가 정보 요청     | `{ "message": "{\"tool_name\":\"...\",\"questions\":[...]}" }` |
 
 ---
 
 ## 환경변수
 
-```env
+```env.local
 OPENAI_API_KEY=
 EXCHANGERATE_API_KEY=
 OPENWEATHERMAP_API_KEY=
