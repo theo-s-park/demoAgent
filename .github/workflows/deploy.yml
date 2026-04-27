@@ -20,6 +20,7 @@ jobs:
       - name: Build JAR
         run: |
           chmod +x gradlew
+          sed -i '/org\.gradle\.java\.home/d' gradle.properties
           ./gradlew build -x test
 
       - name: Upload JAR
