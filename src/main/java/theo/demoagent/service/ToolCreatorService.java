@@ -35,6 +35,7 @@ public class ToolCreatorService {
 
     private final OpenAiClient openAiClient;
     private final DynamicToolRepository dynamicToolRepository;
+    private final ToolRegistryService toolRegistryService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AtomicInteger nextPort = new AtomicInteger(8090);
 
@@ -43,9 +44,11 @@ public class ToolCreatorService {
 
     private static final Pattern SAFE_TOOL_NAME = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]{0,40}$");
 
-    public ToolCreatorService(OpenAiClient openAiClient, DynamicToolRepository dynamicToolRepository) {
+    public ToolCreatorService(OpenAiClient openAiClient, DynamicToolRepository dynamicToolRepository,
+                              ToolRegistryService toolRegistryService) {
         this.openAiClient = openAiClient;
         this.dynamicToolRepository = dynamicToolRepository;
+        this.toolRegistryService = toolRegistryService;
     }
 
     public void create(String description, Map<String, String> answers, Consumer<AgentEvent> emit) {
@@ -192,12 +195,48 @@ public class ToolCreatorService {
     }
 
     private String buildUserMessage(String description, Map<String, String> answers) {
-        StringBuilder sb = new StringBuilder("기능 설명: ").append(description);
+        StringBuilder sb = new StringBuilder();
+
+        // Provide existing tools so the LLM can match tool_name for update_tool
+        try {
+            List<theo.demoagent.dto.ToolInfo> tools = toolRegistryService.listTools();
+            if (!tools.isEmpty()) {
+                sb.append("[현재 등록된 도구 목록]\n");
+                for (var t : tools) {
+                    // id is the numbered index or "dyn-N"; name is display name
+                    // Try to resolve internal tool_name from DB by port
+                    String internalName = resolveInternalName(t.url());
+                    sb.append("- 표시명: ").append(t.name());
+                    if (internalName != null) sb.append(" | tool_name: ").append(internalName);
+                    if (t.url() != null) sb.append(" | URL: ").append(t.url());
+                    sb.append("\n");
+                }
+                sb.append("\n");
+            }
+        } catch (Exception ignored) {}
+
+        sb.append("기능 설명: ").append(description);
         if (!answers.isEmpty()) {
             sb.append("\n\n제공된 정보:");
             answers.forEach((k, v) -> sb.append("\n- ").append(k).append(": ").append(v));
         }
         return sb.toString();
+    }
+
+    private String resolveInternalName(String url) {
+        if (url == null) return null;
+        try {
+            // URL format: http://localhost:{port}/execute
+            String portStr = url.replaceAll(".*:(\\d+)/.*", "$1");
+            int port = Integer.parseInt(portStr);
+            return dynamicToolRepository.findAll().stream()
+                    .filter(t -> t.getPort() == port)
+                    .map(DynamicTool::getToolName)
+                    .findFirst()
+                    .orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private List<Map<String, String>> normalizeQuestions(com.fasterxml.jackson.databind.JsonNode questionsNode) {
