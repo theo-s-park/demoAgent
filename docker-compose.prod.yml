@@ -12,6 +12,7 @@ services:
     volumes:
       - ./system-prompt.txt:/app/system-prompt.txt
       - ./tool-server:/app/tool-server
+      - ./tools.db:/app/tools.db
     restart: unless-stopped
 
   tool-random:
