@@ -57,7 +57,11 @@ public class ToolsController {
 
         String systemMsg = "당신은 시스템 프롬프트 편집 전문가입니다. " +
                 "사용자의 수정 지시에 따라 현재 시스템 프롬프트를 정확히 수정한 뒤, 수정된 전체 프롬프트 텍스트만 반환하세요. " +
-                "마크다운, 설명, 추가 텍스트 일절 금지. 수정된 프롬프트 원문만 출력.";
+                "반드시 지켜야 할 규칙:\n" +
+                "1. 원본의 줄바꿈, 들여쓰기, 공백을 그대로 유지할 것\n" +
+                "2. 도구 블록(URL/인자/설명) 구조를 변경하지 말 것\n" +
+                "3. 마크다운, 코드블록, 설명, 추가 텍스트 일절 금지\n" +
+                "4. 수정된 프롬프트 원문만 출력할 것";
         String userMsg = "[현재 프롬프트]\n" + currentPrompt + "\n\n[수정 지시]\n" + instruction;
 
         String patched = openAiClient.chat(List.of(
