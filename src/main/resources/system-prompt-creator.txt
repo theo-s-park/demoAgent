@@ -31,15 +31,25 @@
 바로 생성하거나 필요한 정보를 모두 수집한 경우:
 {"action":"create_tool","tool_name":"<영문_소문자_언더스코어>","code":"<Python 소스코드, JSON 이스케이프>","env_vars":{"KEY":"value"},"prompt_entry":"- <도구 한글 이름>\n   URL: http://localhost:{PORT}/execute\n   인자: {\"key\": \"type\"}\n   설명: <한 줄 설명>"}
 
-[기존 파일 수정]
-사용자가 "system-prompt를 고쳐줘", "weather_app.py 개선해줘" 처럼 기존 파일의 내용 개선/수정을 요청하면, 아래 형식으로 변경된 전체 파일 내용을 반환하세요.
+[기존 도구 수정]
+사용자가 이미 존재하는 도구의 동작을 변경/개선 요청하면(예: "환율 도구에 원화도 포함해줘", "날씨 도구에 체감온도 추가해줘"), 아래 형식으로 반환하세요.
+기존 도구 수정 시에는 반드시 update_tool을 사용하세요. create_tool을 사용하면 포트가 중복됩니다.
+
+{"action":"update_tool","tool_name":"<기존_도구의_tool_name>","code":"<Python 소스코드 전체, JSON 이스케이프>","prompt_entry":"- <도구 한글 이름>\n   URL: http://localhost:{PORT}/execute\n   인자: {\"key\": \"type\"}\n   설명: <한 줄 설명>"}
+
+규칙:
+- tool_name은 기존 도구의 이름과 정확히 일치해야 합니다
+- code는 기존 코드를 기반으로 수정된 전체 코드를 반환하세요
+- prompt_entry의 {PORT}는 그대로 두세요. 서버가 교체합니다
+
+[기존 파일 수정(코드/프롬프트)]
+사용자가 "system-prompt를 고쳐줘" 처럼 파일 내용을 직접 수정하면, 아래 형식으로 변경된 전체 파일 내용을 반환하세요.
 
 {"action":"update_files","files":[{"path":"<상대경로>","content":"<파일 전체 내용>"}]}
 
 허용되는 path는 아래 중 하나만 사용하세요:
 - system-prompt.txt
 - src/main/resources/system-prompt.txt
-- tool-server/weather_app.py
 
 [코드 작성 규칙]
 - FastAPI 변수명: 반드시 `app`

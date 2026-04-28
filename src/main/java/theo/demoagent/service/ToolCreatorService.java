@@ -103,6 +103,51 @@ public class ToolCreatorService {
             return;
         }
 
+        if ("update_tool".equals(response.action())) {
+            String toolName = response.toolName() == null ? "" : response.toolName().trim();
+            if (!SAFE_TOOL_NAME.matcher(toolName).matches()) {
+                emit.accept(AgentEvent.error("toolName이 안전한 형식이 아닙니다: " + toolName));
+                return;
+            }
+
+            DynamicTool existing = dynamicToolRepository.findByToolName(toolName).orElse(null);
+            if (existing == null) {
+                emit.accept(AgentEvent.error("존재하지 않는 도구입니다: " + toolName + ". 새 도구 추가는 create_tool을 사용하세요."));
+                return;
+            }
+
+            int port = existing.getPort();
+            log.info("[tool-update] name={} port={} old_pid={}", toolName, port, existing.getPid());
+
+            emit.accept(AgentEvent.step("기존 프로세스 종료 중..."));
+            killProcess(existing.getPid());
+
+            emit.accept(AgentEvent.step("코드 파일 업데이트 중..."));
+            if (!writeToolFile(toolName, response.code(), emit)) return;
+
+            emit.accept(AgentEvent.step("시스템 프롬프트 업데이트 중..."));
+            replaceSystemPromptEntry(toolName, response.promptEntry(), port, emit);
+
+            emit.accept(AgentEvent.step("도구 서버 재시작 중..."));
+            Process proc = startToolProcess(toolName, port, response.envVars(), emit);
+            if (proc == null) return;
+            log.info("[tool-update] restarted name={} port={} new_pid={}", toolName, port, proc.pid());
+
+            emit.accept(AgentEvent.step("헬스 체크 중..."));
+            boolean healthy = waitForHealth(port, emit);
+            if (!healthy) {
+                emit.accept(AgentEvent.error("도구 서버 재시작 실패(health timeout): port " + port));
+                return;
+            }
+
+            existing.setPid(proc.pid());
+            dynamicToolRepository.save(existing);
+            log.info("[tool-update] persisted name={} port={} new_pid={}", toolName, port, proc.pid());
+
+            emit.accept(AgentEvent.finalAnswer(toolName + " 도구가 업데이트되어 재시작되었습니다 (port " + port + ")."));
+            return;
+        }
+
         if ("create_tool".equals(response.action())) {
             int port = nextPort.getAndIncrement();
             String toolName = response.toolName() == null ? "" : response.toolName().trim();
@@ -210,9 +255,79 @@ public class ToolCreatorService {
 
     private static final Set<String> ALLOWED_UPDATE_PATHS = Set.of(
             "system-prompt.txt",
-            "src/main/resources/system-prompt.txt",
-            "tool-server/weather_app.py"
+            "src/main/resources/system-prompt.txt"
     );
+
+    private boolean isAllowedUpdatePath(String rel) {
+        if (ALLOWED_UPDATE_PATHS.contains(rel)) return true;
+        // allow any tool-server/*_app.py
+        return rel != null && rel.matches("tool-server/[a-zA-Z][a-zA-Z0-9_]{0,40}_app\\.py");
+    }
+
+    private void killProcess(Long pid) {
+        if (pid == null || pid <= 0) return;
+        try {
+            ProcessHandle.of(pid).ifPresent(ProcessHandle::destroyForcibly);
+        } catch (Exception e) {
+            log.warn("[tool-update] kill pid={} failed: {}", pid, e.toString());
+        }
+    }
+
+    private void replaceSystemPromptEntry(String toolName, String promptEntry, int port, Consumer<AgentEvent> emit) {
+        if (promptEntry == null || promptEntry.isBlank()) return;
+        try {
+            Path promptPath = Path.of(baseDir, "system-prompt.txt");
+            if (!Files.exists(promptPath)) return;
+            String current = Files.readString(promptPath);
+            String newEntry = promptEntry.replace("{PORT}", String.valueOf(port));
+
+            // Find the block that contains the tool's execute URL for this port
+            // Replace from the tool name line to the next blank line or next numbered/dashed tool
+            String portStr = String.valueOf(port);
+            int portIdx = current.indexOf("/execute\n", current.indexOf("localhost:" + portStr));
+            if (portIdx < 0) portIdx = current.indexOf("/execute", current.indexOf("localhost:" + portStr));
+
+            if (portIdx >= 0) {
+                // Walk back to find the start of this tool's block (numbered or dashed line)
+                int blockStart = current.lastIndexOf("\n", portIdx - 1);
+                // Find the previous tool header line
+                int prevNewline = current.lastIndexOf("\n", blockStart - 1);
+                while (prevNewline >= 0) {
+                    String candidate = current.substring(prevNewline + 1, blockStart + 1).stripLeading();
+                    if (candidate.matches("(\\d+\\.|-)\\s+.+\\n?")) {
+                        blockStart = prevNewline;
+                        break;
+                    }
+                    int next = current.lastIndexOf("\n", prevNewline - 1);
+                    if (next < 0 || next == prevNewline) break;
+                    blockStart = prevNewline;
+                    prevNewline = next;
+                }
+
+                // Find the end of this block (next blank line or next tool header or [응답 형식])
+                int blockEnd = portIdx + "/execute".length();
+                // advance past rest of this block
+                int nextBlank = current.indexOf("\n\n", blockEnd);
+                int responseSection = current.indexOf("[응답 형식]", blockEnd);
+                blockEnd = nextBlank >= 0 ? nextBlank : (responseSection >= 0 ? responseSection - 1 : current.length());
+
+                String updated = current.substring(0, blockStart + 1) + newEntry + current.substring(blockEnd);
+                Files.writeString(promptPath, updated);
+                emit.accept(AgentEvent.step("시스템 프롬프트 항목 교체 완료"));
+            } else {
+                // Port not found — append as new entry
+                updateSystemPrompt(promptEntry, port, emit);
+            }
+
+            // sync dev resource
+            Path devPrompt = Path.of(baseDir, "src/main/resources/system-prompt.txt");
+            if (Files.exists(devPrompt)) {
+                Files.writeString(devPrompt, Files.readString(promptPath));
+            }
+        } catch (IOException e) {
+            emit.accept(AgentEvent.step("프롬프트 항목 교체 실패 (무시 가능): " + e.getMessage()));
+        }
+    }
 
     private int updateFiles(List<theo.demoagent.dto.ToolFileUpdate> files, Consumer<AgentEvent> emit) throws IOException {
         if (files == null || files.isEmpty()) {
@@ -225,7 +340,7 @@ public class ToolCreatorService {
             if (f == null) continue;
             String rel = f.path();
             if (rel == null || rel.isBlank()) continue;
-            if (!ALLOWED_UPDATE_PATHS.contains(rel)) {
+            if (!isAllowedUpdatePath(rel)) {
                 throw new IllegalArgumentException("허용되지 않은 path: " + rel);
             }
             if (!seen.add(rel)) continue;
