@@ -337,6 +337,85 @@ else direct save (전체 저장)
 end
 
 UI-->>User: tool list refresh(프롬프트 기반)`
+      },
+      {
+        id: 'update-tool',
+        kicker: 'Use-case ④',
+        name: '도구 수정',
+        desc: '기존 도구 변경 요청 → 코드·프롬프트·프로세스를 동시에 갱신.',
+        code: `sequenceDiagram
+autonumber
+actor User as User
+participant UI as Browser(UI)
+participant Creator as Spring ToolCreator API
+participant LLM as External LLM API
+participant DB as SQLite tools.db
+participant FS as Runtime Files(tool-server/*.py, system-prompt.txt)
+participant Proc as uvicorn(기존 포트)
+
+User->>UI: "환율 도구에 원화도 포함해줘"
+UI->>Creator: POST /api/tool-creator/create (SSE)
+
+Note over Creator: 현재 도구 목록(tool_name, port)을 LLM 컨텍스트에 주입
+Creator->>LLM: request(instruction + 현재 도구 목록)
+LLM-->>Creator: update_tool {tool_name, code, prompt_entry}
+
+Creator->>DB: findByToolName → port, pid 조회
+Creator->>Proc: destroyForcibly(pid) — 기존 프로세스 종료
+Creator->>FS: overwrite tool-server/{name}_app.py
+Creator->>FS: replace system-prompt.txt 해당 도구 항목
+
+Creator->>Proc: spawn uvicorn {name}_app:app --port (기존 포트)
+loop health gate
+  Creator->>Proc: GET /health
+  Proc-->>Creator: 2xx ready
+end
+
+Creator->>DB: update pid (새 프로세스 ID 저장)
+Creator-->>UI: SSE final(수정 완료)
+UI-->>User: 도구 목록 갱신`
+      },
+      {
+        id: 'future-docker',
+        kicker: '고도화 방향',
+        name: 'Docker 기반 도구 관리',
+        desc: 'GUI 클릭·대화로 컨테이너 단위 Tool Server를 추가·삭제·시작·종료.',
+        code: `sequenceDiagram
+autonumber
+actor User as User
+participant UI as Browser(UI)
+participant Agent as Spring Agent Server
+participant Docker as Docker Daemon(API)
+participant Registry as Tool Registry(DB)
+participant LLM as External LLM API
+
+Note over UI,Docker: 현재: uvicorn 프로세스 직기동 → 고도화: 컨테이너 단위 관리
+
+User->>UI: "주식 조회 도구 추가해줘" (또는 버튼 클릭)
+UI->>Agent: POST /api/tool-creator/create
+
+Agent->>LLM: 코드 생성 요청
+LLM-->>Agent: create_tool {code, prompt_entry}
+
+Agent->>Docker: docker build (생성된 Dockerfile + _app.py)
+Agent->>Docker: docker run --name tool-stock -p 8091:8000
+Docker-->>Agent: container ID
+
+loop health gate
+  Agent->>Docker: GET /health
+  Docker-->>Agent: 2xx ready
+end
+
+Agent->>Registry: save(tool_name, port, container_id)
+Agent->>Agent: system-prompt.txt 도구 항목 추가
+Agent-->>UI: SSE final(활성화 완료)
+
+Note over UI,Docker: 이후 GUI에서 도구별 시작/종료/삭제
+User->>UI: "주식 조회 도구 내려줘" (버튼 클릭)
+UI->>Agent: POST /api/tools/{name}/stop
+Agent->>Docker: docker stop tool-stock
+Agent->>Registry: update status=stopped
+Agent-->>UI: 도구 비활성화 표시`
       }
     ];
 
