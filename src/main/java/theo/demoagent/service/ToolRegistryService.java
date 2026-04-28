@@ -73,7 +73,11 @@ public class ToolRegistryService {
         int end = prompt.indexOf("[응답 형식]", start);
         String section = end >= 0 ? prompt.substring(start, end) : prompt.substring(start);
 
-        Pattern blockStart = Pattern.compile("(?m)^(?:(\\d+)\\.\\s*(.+?)|-\\s*(.+?))\\s*$");
+        // 섹션 헤더 제거 — LLM이 줄바꿈 없이 붙여도 첫 번째 도구를 찾을 수 있게
+        section = section.replaceFirst("\\[사용 가능한 도구\\]\\s*", "");
+
+        // 줄 시작(^) 없이도 "N. 이름" / "- 이름" 패턴 매칭
+        Pattern blockStart = Pattern.compile("(?:^|\\n)\\s*(?:(\\d+)\\.\\s*(.+?)|-\\s*(.+?))(?=\\s*(?:\\n|URL:|인자|설명|$))");
         Matcher m = blockStart.matcher(section);
 
         List<Integer> starts = new ArrayList<>();
@@ -86,16 +90,20 @@ public class ToolRegistryService {
             String dashedName = m.group(3);
 
             String name = (numberedName != null ? numberedName : dashedName).trim();
-            String id = (num != null && !num.isBlank()) ? num : "dyn-" + (ids.size() + 1);
+            // LLM이 한 줄로 합쳤을 때 이름에 "URL:..." 가 붙는 경우 잘라냄
+            int urlIdx = name.indexOf(" URL:");
+            if (urlIdx >= 0) name = name.substring(0, urlIdx).trim();
 
+            String id = (num != null && !num.isBlank()) ? num : "dyn-" + (ids.size() + 1);
             ids.add(id);
             names.add(name);
         }
         starts.add(section.length());
 
-        Pattern urlP = Pattern.compile("(?m)^\\s*URL:\\s*(\\S+)\\s*$");
-        Pattern argsP = Pattern.compile("(?m)^\\s*인자[^:]*:\\s*(.+?)\\s*$");
-        Pattern descP = Pattern.compile("(?m)^\\s*설명:\\s*(.+?)\\s*$");
+        // URL/인자/설명: 줄 시작 불필요 — 같은 줄에 있어도 찾을 수 있게
+        Pattern urlP = Pattern.compile("URL:\\s*(https?://\\S+)");
+        Pattern argsP = Pattern.compile("인자[^:]*:\\s*(.+?)(?=\\s+설명:|\\s+URL:|\\n\\n|$)");
+        Pattern descP = Pattern.compile("설명:\\s*(.+?)(?=\\s+URL:|\\s+인자:|\\n\\n|$)");
 
         for (int i = 0; i < ids.size(); i++) {
             String block = section.substring(starts.get(i), starts.get(i + 1)).trim();
