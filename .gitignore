@@ -43,6 +43,12 @@ out/
 ### Runtime state ###
 tools.db
 
+### Dynamic tool-server files (LLM-generated, excluded from git) ###
+tool-server/*_app.py
+!tool-server/currency_app.py
+!tool-server/random_app.py
+!tool-server/weather_app.py
+
 ### Python ###
 .venv/
 __pycache__/
