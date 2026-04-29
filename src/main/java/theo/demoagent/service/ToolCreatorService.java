@@ -585,6 +585,7 @@ public class ToolCreatorService {
         try {
             Path toolDir = Path.of(baseDir, "tool-server");
             String python = resolvePythonPath(toolDir);
+            log.info("[tool-proc] python={} tool={} port={}", python, toolName, port);
 
             ProcessBuilder pb = new ProcessBuilder(
                     python, "-m", "uvicorn",
@@ -595,7 +596,6 @@ public class ToolCreatorService {
                     .directory(toolDir.toFile())
                     .redirectErrorStream(true);
 
-            // Inherit current env + load .env/.env.local + merge new env_vars
             Map<String, String> merged = new HashMap<>();
             merged.putAll(readDotEnv(Path.of(baseDir, ".env")));
             merged.putAll(readDotEnv(Path.of(baseDir, ".env.local")));
@@ -604,7 +604,16 @@ public class ToolCreatorService {
 
             Process p = pb.start();
 
-            emit.accept(AgentEvent.step("프로세스 시작 요청 완료"));
+            // 프로세스 stdout/stderr를 백그라운드 스레드에서 로그로 출력
+            Thread.ofVirtual().start(() -> {
+                try (var reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(p.getInputStream()))) {
+                    reader.lines().forEach(line ->
+                            log.info("[tool-proc:{}:{}] {}", toolName, port, line));
+                } catch (Exception ignored) {}
+            });
+
+            emit.accept(AgentEvent.step("프로세스 시작 요청 완료 (python=" + python + ")"));
             return p;
         } catch (Exception e) {
             emit.accept(AgentEvent.step(
