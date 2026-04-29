@@ -53,19 +53,31 @@ public class ToolCreatorService {
     }
 
     public void create(String description, Map<String, String> answers, Consumer<AgentEvent> emit) {
-        log.info("[tool-create] start desc_len={} answers_keys={}", description == null ? 0 : description.length(), answers == null ? List.of() : answers.keySet());
+        Map<String, String> safeAnswers = answers == null ? Map.of() : answers;
+        log.info("[tool-create] START desc='{}' answers={}", description, safeAnswers);
+
+        // UI: 사용자가 제공한 정보 표시
+        if (!safeAnswers.isEmpty()) {
+            String infoLine = safeAnswers.entrySet().stream()
+                    .map(e -> e.getKey() + "=" + e.getValue())
+                    .collect(Collectors.joining(", "));
+            emit.accept(AgentEvent.step("[제공된 정보] " + infoLine));
+        }
+
         String creatorPrompt = loadCreatorPrompt();
+        String userMsg = buildUserMessage(description, safeAnswers);
+        log.info("[tool-create] user_message:\n{}", userMsg);
 
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(Map.of("role", "system", "content", creatorPrompt));
-        messages.add(Map.of("role", "user", "content", buildUserMessage(description, answers)));
+        messages.add(Map.of("role", "user", "content", userMsg));
 
-        emit.accept(AgentEvent.step("요청 분석 중..."));
+        emit.accept(AgentEvent.step("LLM 분석 중..."));
 
         String content;
         try {
-            log.info("[tool-create] llm request");
             content = openAiClient.chat(messages);
+            log.info("[tool-create] llm_raw:\n{}", content);
         } catch (Exception e) {
             log.warn("[tool-create] llm failed: {}", e.toString());
             emit.accept(AgentEvent.error("LLM 호출 실패: " + e.getMessage()));
@@ -77,10 +89,14 @@ public class ToolCreatorService {
             String json = content.trim().replaceAll("(?s)^```\\w*\\n?", "").replaceAll("```\\s*$", "").trim();
             response = objectMapper.readValue(json, ToolCreatorLlmResponse.class);
         } catch (Exception e) {
-            log.warn("[tool-create] llm response parse failed: {}", e.toString());
+            log.warn("[tool-create] parse failed: {}", e.toString());
             emit.accept(AgentEvent.error("응답 파싱 실패: " + content));
             return;
         }
+
+        log.info("[tool-create] action={} tool_name={}", response.action(), response.toolName());
+        emit.accept(AgentEvent.step("[LLM 판단] action=" + response.action()
+                + (response.toolName() != null && !response.toolName().isBlank() ? " tool=" + response.toolName() : "")));
 
         if ("reject".equals(response.action())) {
             String msg = response.reason() != null && !response.reason().isBlank()
@@ -94,9 +110,10 @@ public class ToolCreatorService {
         if ("need_info".equals(response.action())) {
             try {
                 List<Map<String, String>> normalized = normalizeQuestions(response.questions());
-                log.info("[tool-create] need_info toolName={} questions={}", response.toolName(), normalized.size());
+                log.info("[tool-create] need_info questions={}", normalized.stream()
+                        .map(q -> q.get("key")).collect(Collectors.joining(", ")));
                 String questionsJson = objectMapper.writeValueAsString(
-                        Map.of("tool_name", response.toolName(), "questions", normalized)
+                        Map.of("tool_name", response.toolName() != null ? response.toolName() : "", "questions", normalized)
                 );
                 emit.accept(AgentEvent.form(questionsJson));
             } catch (Exception e) {
@@ -208,14 +225,11 @@ public class ToolCreatorService {
     private String buildUserMessage(String description, Map<String, String> answers) {
         StringBuilder sb = new StringBuilder();
 
-        // Provide existing tools so the LLM can match tool_name for update_tool
         try {
             List<theo.demoagent.dto.ToolInfo> tools = toolRegistryService.listTools();
             if (!tools.isEmpty()) {
                 sb.append("[현재 등록된 도구 목록]\n");
                 for (var t : tools) {
-                    // id is the numbered index or "dyn-N"; name is display name
-                    // Try to resolve internal tool_name from DB by port
                     String internalName = resolveInternalName(t.url());
                     sb.append("- 표시명: ").append(t.name());
                     if (internalName != null) sb.append(" | tool_name: ").append(internalName);
@@ -227,7 +241,7 @@ public class ToolCreatorService {
         } catch (Exception ignored) {}
 
         sb.append("기능 설명: ").append(description);
-        if (!answers.isEmpty()) {
+        if (answers != null && !answers.isEmpty()) {
             sb.append("\n\n제공된 정보:");
             answers.forEach((k, v) -> sb.append("\n- ").append(k).append(": ").append(v));
         }
