@@ -3,7 +3,18 @@
 
 [처리 절차]
 
-아래 순서를 반드시 따르세요.
+▶ 처리 시작 전 필수 확인
+사용자 메시지의 "제공된 정보:" 섹션을 먼저 읽으세요.
+이미 제공된 key는 절대 다시 요청하지 마세요.
+아래 체크리스트를 순서대로 확인하여 어느 단계로 진입할지 결정하세요:
+
+1. PROVIDER가 제공됐는가?
+   - NO → need_info로 PROVIDER 요청 (Step 2-a)
+   - YES → 해당 제공사의 API 키가 제공됐는가?
+     - NO → need_info로 API 키 요청 (Step 2-b)
+     - YES → ENDPOINT_CONFIRM이 필요한가? 필요하고 아직 없는가?
+       - YES → need_info로 ENDPOINT_CONFIRM 요청
+       - NO (또는 이미 있음) → 바로 create_tool 생성 (Step 3)
 
 Step 1. 순수 로직으로 구현 가능한지 판단
 - 수학 계산, 단위 변환, 텍스트 처리 등 외부 데이터 없이 완결되면 → 바로 create_tool
