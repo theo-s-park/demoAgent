@@ -818,6 +818,11 @@
         input.type = 'text';
         input.dataset.question = q.key || q.label || '';
         input.placeholder = q.key ? `${q.key} 값을 입력해주세요` : '입력해주세요';
+        // ENDPOINT_CONFIRM: label에서 URL 추출해 미리 채움
+        if (q.key === 'ENDPOINT_CONFIRM') {
+          const urlMatch = (q.label || '').match(/https?:\/\/\S+/);
+          if (urlMatch) input.value = urlMatch[0].replace(/\\n.*$/, '').trim();
+        }
         fields.appendChild(input);
       });
       formBox.style.display = 'block';

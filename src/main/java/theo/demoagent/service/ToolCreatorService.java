@@ -644,15 +644,33 @@ public class ToolCreatorService {
     }
 
     private String resolvePythonPath(Path toolDir) {
-        Path toolPython = toolDir.resolve(".venv").resolve("Scripts").resolve("python.exe");
-        if (Files.exists(toolPython)) return toolPython.toString();
+        // Windows venv
+        Path winVenv = toolDir.resolve(".venv").resolve("Scripts").resolve("python.exe");
+        if (Files.exists(winVenv)) return winVenv.toString();
+
+        // Linux venv (tool-server/.venv/bin/python)
+        Path linuxVenv = toolDir.resolve(".venv").resolve("bin").resolve("python");
+        if (Files.exists(linuxVenv)) return linuxVenv.toString();
 
         if (baseDir != null) {
-            Path rootPython = Path.of(baseDir).resolve(".venv").resolve("Scripts").resolve("python.exe");
-            if (Files.exists(rootPython)) return rootPython.toString();
+            // Windows root venv
+            Path rootWin = Path.of(baseDir).resolve(".venv").resolve("Scripts").resolve("python.exe");
+            if (Files.exists(rootWin)) return rootWin.toString();
+
+            // Linux root venv
+            Path rootLinux = Path.of(baseDir).resolve(".venv").resolve("bin").resolve("python");
+            if (Files.exists(rootLinux)) return rootLinux.toString();
         }
 
-        return "python";
+        // 시스템 python3, python 순으로 시도
+        for (String candidate : List.of("python3", "python")) {
+            try {
+                Process p = new ProcessBuilder(candidate, "--version").start();
+                p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
+                if (p.exitValue() == 0) return candidate;
+            } catch (Exception ignored) {}
+        }
+        return "python3";
     }
 
     private Map<String, String> readDotEnv(Path path) {
