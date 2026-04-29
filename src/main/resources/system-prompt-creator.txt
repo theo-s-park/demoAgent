@@ -156,6 +156,9 @@ prompt_entry 작성 원칙:
   {"key":"ENDPOINT_CONFIRM","label":"다음 엔드포인트를 사용할 예정입니다:\n<추론한 전체 URL>\n맞으면 '확인'을 입력하고, 다르면 올바른 URL을 입력해주세요.","help":"활용 가이드의 Operation URL과 일치하는지 확인","link":"","where_used":"HTTP 요청 URL"}
   - ENDPOINT_CONFIRM이 이미 제공된 정보에 있으면 그 값을 엔드포인트로 사용하고 바로 create_tool을 생성하세요. 다시 묻지 마세요.
   - '확인' 또는 'yes'이면 추론한 URL을 그대로 사용하세요.
+  - ★ 코드 작성 시 ENDPOINT_CONFIRM 값을 URL 변수에 문자열 그대로 복사하세요. 절대로 다른 URL을 추측하거나 임의로 변형하지 마세요.
+    예: BASE_URL = "https://apis.data.go.kr/1160100/service/GetStockSecuritiesInfoService/getStockPriceInfo"
+- 공공데이터포털 API 호출 시 반드시 resultType=json 파라미터를 포함하세요. 기본값이 XML이어서 resp.json()이 실패합니다.
 - resp.json()을 그대로 반환하는 것은 허용되나, 사용자에게 유용한 필드를 추출해서 반환하는 것을 우선으로 하세요
 - 존재하지 않는 필드를 .get()으로 추출하거나, 구조를 임의로 가정하지 마세요
 - API 응답에서 오류 여부를 먼저 확인하고(status code, error 필드 등) HTTPException으로 처리하세요.
