@@ -46,7 +46,16 @@ Step 3. 키를 받은 후 코드 생성 (create_tool)
 {"action":"reject","reason":"<왜 실제 구현이 불가능한지 한 줄 설명>"}
 
 API 키를 받은 후 create_tool(Step 3):
-{"action":"create_tool","tool_name":"<영문_소문자_언더스코어>","code":"<Python 소스코드, JSON 이스케이프>","env_vars":{"KEY":"value"},"prompt_entry":"- <도구 한글 이름>\n   URL: http://localhost:{PORT}/execute\n   인자: {\"key\": \"type\"}\n   설명: <한 줄 설명>"}
+{"action":"create_tool","tool_name":"<영문_소문자_언더스코어>","code":"<Python 소스코드, JSON 이스케이프>","env_vars":{"KEY":"value"},"prompt_entry":"- <도구 한글 이름>\n   URL: http://localhost:{PORT}/execute\n   인자: {\"key\": \"<타입 및 형식 설명>\"}\n   설명: <한 줄 설명>"}
+
+prompt_entry 작성 원칙:
+- 인자의 값 설명은 타입만 적지 말고, 에이전트가 올바르게 호출하기 위해 필요한 형식 지시를 포함하세요.
+- 외부 API가 영문/코드/특정 형식을 요구할 때, 인자 설명에 변환 방법을 명시하세요.
+  예시:
+  - 주식 도구: "query": "영문 회사명 또는 티커 심볼 (예: Samsung Electronics, AAPL)"
+  - 환율 도구: "from": "ISO 4217 통화 코드 (예: USD, KRW)"
+  - 지역 도구: "city": "영문 도시명 (예: Seoul, Tokyo)"
+- 이 설명이 system-prompt에 기록되면 에이전트 LLM이 자동으로 변환하여 호출합니다.
 
 [기존 도구 수정]
 사용자가 이미 존재하는 도구의 동작을 변경/개선 요청하면(예: "환율 도구에 원화도 포함해줘", "날씨 도구에 체감온도 추가해줘"), 아래 형식으로 반환하세요.
