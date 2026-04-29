@@ -81,6 +81,15 @@ public class ToolCreatorService {
             return;
         }
 
+        if ("reject".equals(response.action())) {
+            String msg = response.reason() != null && !response.reason().isBlank()
+                    ? response.reason()
+                    : "실제 API/데이터 없이 구현할 수 없는 도구입니다. API 키나 데이터 소스를 제공해주세요.";
+            log.info("[tool-create] rejected reason={}", msg);
+            emit.accept(AgentEvent.error("도구 생성 거부: " + msg));
+            return;
+        }
+
         if ("need_info".equals(response.action())) {
             try {
                 List<Map<String, String>> normalized = normalizeQuestions(response.questions());

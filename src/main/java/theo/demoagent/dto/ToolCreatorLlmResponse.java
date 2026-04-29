@@ -15,6 +15,7 @@ public record ToolCreatorLlmResponse(
         String code,
         @JsonProperty("env_vars") Map<String, String> envVars,
         @JsonProperty("prompt_entry") String promptEntry,
-        List<ToolFileUpdate> files
+        List<ToolFileUpdate> files,
+        String reason
 ) {}
 
