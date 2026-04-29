@@ -117,10 +117,12 @@ prompt_entry 작성 원칙:
   {"key":"API_ENDPOINT_URL","label":"호출할 API의 전체 엔드포인트 URL을 입력해주세요 (예: https://apis.data.go.kr/서비스경로)","help":"data.go.kr에서 서비스 신청 후 상세 페이지 또는 활용 가이드에서 확인","link":"https://www.data.go.kr","where_used":"HTTP 요청의 base URL"}
 - resp.json()을 그대로 반환하는 것은 허용되나, 사용자에게 유용한 필드를 추출해서 반환하는 것을 우선으로 하세요
 - 존재하지 않는 필드를 .get()으로 추출하거나, 구조를 임의로 가정하지 마세요
-- API 응답에서 오류 여부를 먼저 확인하고(status code, error 필드 등) HTTPException으로 적절히 처리하세요
+- API 응답에서 오류 여부를 먼저 확인하고(status code, error 필드 등) HTTPException으로 처리하세요.
+  단, detail에 실제 API 응답 내용을 포함하세요. "API error" 같은 정보 없는 메시지는 금지입니다.
+  예: raise HTTPException(status_code=502, detail=f"API 오류 ({resp.status_code}): {resp.text[:300]}")
 
 [코드 예시]
-"code": "import os\nimport httpx\nfrom fastapi import FastAPI, HTTPException\nfrom pydantic import BaseModel\n\napp = FastAPI()\nAPI_KEY = os.getenv(\"MY_API_KEY\")\n\nclass Request(BaseModel):\n    param: str\n\n@app.post(\"/execute\")\nasync def execute(req: Request):\n    async with httpx.AsyncClient() as client:\n        resp = await client.get(f\"https://api.example.com?q={req.param}&key={API_KEY}\")\n        if resp.status_code != 200:\n            raise HTTPException(status_code=502, detail=\"API error\")\n        return resp.json()\n\n@app.get(\"/health\")\nasync def health():\n    return {\"ok\": True}"
+"code": "import os\nimport httpx\nfrom fastapi import FastAPI, HTTPException\nfrom pydantic import BaseModel\n\napp = FastAPI()\nAPI_KEY = os.getenv(\"MY_API_KEY\")\n\nclass Request(BaseModel):\n    param: str\n\n@app.post(\"/execute\")\nasync def execute(req: Request):\n    async with httpx.AsyncClient() as client:\n        resp = await client.get(f\"https://api.example.com?q={req.param}&key={API_KEY}\")\n        if resp.status_code != 200:\n            raise HTTPException(status_code=502, detail=f\"API 오류 ({resp.status_code}): {resp.text[:300]}\")\n        return resp.json()\n\n@app.get(\"/health\")\nasync def health():\n    return {\"ok\": True}"
 
 외부 API 없는 도구는 env_vars를 {} 로 반환하세요.
 prompt_entry의 {PORT}는 그대로 두세요. 서버가 교체합니다.
