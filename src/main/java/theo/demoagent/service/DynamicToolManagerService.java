@@ -9,10 +9,12 @@ import theo.demoagent.domain.DynamicToolRepository;
 import theo.demoagent.dto.AgentEvent;
 
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,6 +65,7 @@ public class DynamicToolManagerService {
 
             emit.accept(AgentEvent.step("프로세스 종료 중 (port " + tool.getPort() + ")..."));
             stopProcess(tool.getPid(), emit);
+            killByPort(tool.getPort(), emit);
 
             emit.accept(AgentEvent.step("코드 파일 삭제 중..."));
             tryRemoveToolFile(tool.getToolName());
@@ -117,6 +120,34 @@ public class DynamicToolManagerService {
             emit.accept(AgentEvent.step("프로세스 종료 완료 (pid " + pid + ")"));
         } catch (Exception e) {
             emit.accept(AgentEvent.step("프로세스 종료 실패 (무시 가능): " + e.getMessage()));
+        }
+    }
+
+    private void killByPort(int port, Consumer<AgentEvent> emit) {
+        if (port <= 0) return;
+        try {
+            // Check if port is already free
+            try (ServerSocket ignored = new ServerSocket(port)) {
+                return; // port is free, nothing to kill
+            } catch (IOException ignored) {
+                // port occupied — proceed to kill
+            }
+
+            String os = System.getProperty("os.name", "").toLowerCase();
+            ProcessBuilder pb;
+            if (os.contains("win")) {
+                pb = new ProcessBuilder("cmd", "/c",
+                        "for /f \"tokens=5\" %a in ('netstat -aon ^| findstr /R \":" + port + " \" ^| findstr LISTENING') do taskkill /F /PID %a");
+            } else {
+                pb = new ProcessBuilder("sh", "-c", "lsof -ti :" + port + " | xargs -r kill -9");
+            }
+            pb.redirectErrorStream(true);
+            Process proc = pb.start();
+            proc.waitFor(3, TimeUnit.SECONDS);
+            log.info("[kill-port] port={} killed", port);
+            emit.accept(AgentEvent.step("포트 " + port + " 프로세스 강제 종료 완료"));
+        } catch (Exception e) {
+            log.warn("[kill-port] port={} error: {}", port, e.toString());
         }
     }
 

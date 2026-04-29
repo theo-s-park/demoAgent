@@ -14,6 +14,7 @@ import theo.demoagent.dto.AgentEvent;
 import theo.demoagent.dto.ToolCreatorLlmResponse;
 
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -133,6 +134,7 @@ public class ToolCreatorService {
 
             emit.accept(AgentEvent.step("기존 프로세스 종료 중..."));
             killProcess(existing.getPid());
+            killByPort(port);
 
             emit.accept(AgentEvent.step("코드 파일 업데이트 중..."));
             if (!writeToolFile(toolName, response.code(), emit)) return;
@@ -161,7 +163,7 @@ public class ToolCreatorService {
         }
 
         if ("create_tool".equals(response.action())) {
-            int port = nextPort.getAndIncrement();
+            int port = findFreePort();
             String toolName = response.toolName() == null ? "" : response.toolName().trim();
             if (!SAFE_TOOL_NAME.matcher(toolName).matches()) {
                 log.warn("[tool-create] unsafe toolName={}", toolName);
@@ -321,6 +323,29 @@ public class ToolCreatorService {
         }
     }
 
+    private void killByPort(int port) {
+        if (port <= 0) return;
+        try {
+            try (ServerSocket ignored = new ServerSocket(port)) {
+                return; // already free
+            } catch (IOException ignored) {}
+
+            String os = System.getProperty("os.name", "").toLowerCase();
+            ProcessBuilder pb;
+            if (os.contains("win")) {
+                pb = new ProcessBuilder("cmd", "/c",
+                        "for /f \"tokens=5\" %a in ('netstat -aon ^| findstr /R \":" + port + " \" ^| findstr LISTENING') do taskkill /F /PID %a");
+            } else {
+                pb = new ProcessBuilder("sh", "-c", "lsof -ti :" + port + " | xargs -r kill -9");
+            }
+            pb.redirectErrorStream(true);
+            pb.start().waitFor(3, java.util.concurrent.TimeUnit.SECONDS);
+            log.info("[kill-port] killed process on port={}", port);
+        } catch (Exception e) {
+            log.warn("[kill-port] port={} error: {}", port, e.toString());
+        }
+    }
+
     private void replaceSystemPromptEntry(String toolName, String promptEntry, int port, Consumer<AgentEvent> emit) {
         if (promptEntry == null || promptEntry.isBlank()) return;
         try {
@@ -474,6 +499,19 @@ public class ToolCreatorService {
         int count = 0;
         while (m.find()) count++;
         return count;
+    }
+
+    private int findFreePort() {
+        int candidate = nextPort.get();
+        while (true) {
+            try (ServerSocket ss = new ServerSocket(candidate)) {
+                nextPort.set(candidate + 1);
+                return candidate;
+            } catch (IOException ignored) {
+                // port occupied, try next
+                candidate = nextPort.incrementAndGet();
+            }
+        }
     }
 
     private Process startToolProcess(String toolName, int port, Map<String, String> envVars, Consumer<AgentEvent> emit) {
