@@ -426,17 +426,45 @@ public class ToolCreatorService {
                 Path devPrompt = Path.of(baseDir, "src/main/resources/system-prompt.txt");
                 current = Files.exists(devPrompt) ? Files.readString(devPrompt) : "";
             }
-            String entry = "\n" + promptEntry.replace("{PORT}", String.valueOf(port));
 
+            // 현재 도구 개수를 세어 다음 번호 결정
+            int nextNum = countToolEntries(current) + 1;
+
+            // LLM이 생성한 "- 이름" 형식을 "N. 이름" 번호 형식으로 변환
+            String normalized = promptEntry
+                    .replace("{PORT}", String.valueOf(port))
+                    .replaceFirst("^-\\s+", nextNum + ". ");
+
+            String entry = "\n" + normalized;
             int insertIdx = current.indexOf("[응답 형식]");
             String updated = insertIdx >= 0
                     ? current.substring(0, insertIdx) + entry + "\n\n" + current.substring(insertIdx)
                     : current + entry;
 
             Files.writeString(promptPath, updated);
+
+            // dev resource 동기화
+            Path devPrompt = Path.of(baseDir, "src/main/resources/system-prompt.txt");
+            if (Files.exists(devPrompt)) {
+                Files.writeString(devPrompt, updated);
+            }
         } catch (IOException e) {
             emit.accept(AgentEvent.step("프롬프트 업데이트 실패 (무시 가능): " + e.getMessage()));
         }
+    }
+
+    private int countToolEntries(String prompt) {
+        int start = prompt.indexOf("[사용 가능한 도구]");
+        int end = prompt.indexOf("[응답 형식]");
+        if (start < 0) return 0;
+        String section = end >= 0 ? prompt.substring(start, end) : prompt.substring(start);
+        // "N. " 또는 "- " 로 시작하는 도구 블록 개수
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(?:^|\\n)\\s*(?:\\d+\\.|-) ")
+                .matcher(section);
+        int count = 0;
+        while (m.find()) count++;
+        return count;
     }
 
     private Process startToolProcess(String toolName, int port, Map<String, String> envVars, Consumer<AgentEvent> emit) {
