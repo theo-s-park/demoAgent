@@ -354,7 +354,10 @@ public class ToolCreatorService {
             Path promptPath = Path.of(baseDir, "system-prompt.txt");
             if (!Files.exists(promptPath)) return;
             String current = Files.readString(promptPath);
-            String newEntry = promptEntry.replace("{PORT}", String.valueOf(port));
+            // "- 이름" 형식을 기존 번호에 맞춰 "N. 이름" 으로 정규화
+            int existingNum = findExistingToolNumber(current, port);
+            String newEntry = promptEntry.replace("{PORT}", String.valueOf(port))
+                    .replaceFirst("^-\\s+", (existingNum > 0 ? existingNum : countToolEntries(current)) + ". ");
 
             // Find the block that contains the tool's execute URL for this port
             // Replace from the tool name line to the next blank line or next numbered/dashed tool
@@ -486,6 +489,24 @@ public class ToolCreatorService {
             }
         } catch (IOException e) {
             emit.accept(AgentEvent.step("프롬프트 업데이트 실패 (무시 가능): " + e.getMessage()));
+        }
+    }
+
+    private int findExistingToolNumber(String prompt, int port) {
+        try {
+            int portIdx = prompt.indexOf("localhost:" + port + "/execute");
+            if (portIdx < 0) return 0;
+            int lineStart = prompt.lastIndexOf("\n", portIdx) + 1;
+            // walk back to find the numbered header
+            String before = prompt.substring(0, lineStart);
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("(?:^|\\n)(\\d+)\\. ")
+                    .matcher(before);
+            int last = 0;
+            while (m.find()) last = Integer.parseInt(m.group(1));
+            return last;
+        } catch (Exception e) {
+            return 0;
         }
     }
 
