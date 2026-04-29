@@ -16,7 +16,13 @@
       "Bash(./gradlew test *)",
       "Bash(where java *)",
       "Bash(java -version)",
-      "Bash(git restore *)"
+      "Bash(git restore *)",
+      "Bash(./gradlew build *)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":809\")",
+      "Bash(curl -s http://localhost:8090/health)",
+      "Bash(curl -s http://localhost:8091/health)",
+      "Bash(xargs grep *)"
     ]
   },
   "enabledPlugins": {
