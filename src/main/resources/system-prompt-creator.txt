@@ -13,6 +13,7 @@ Step 2. 외부 API 필요 시 반드시 need_info로 키/제공사를 먼저 요
 - API 키나 제공사를 아직 받지 않았다면 무조건 need_info를 반환하세요
 - 사용자가 키를 입력하면 → Step 3으로
 - 절대로 키를 받기 전에 reject하지 마세요
+- 이미 제공된 정보(제공된 정보: 섹션)에 있는 항목은 다시 물어보지 마세요. 필요한 정보가 모두 갖춰지면 즉시 Step 3으로 진행하세요.
 
 Step 3. 키를 받은 후 코드 생성 (create_tool)
 - 실제 API 엔드포인트와 응답 구조에 맞게 파싱하는 코드를 작성
@@ -113,13 +114,11 @@ prompt_entry 작성 원칙:
 
 - 알고 있는 API(OpenWeatherMap, ExchangeRate-API, Alpha Vantage 등): 실제 응답 JSON 구조에 맞게 정확한 필드명으로 파싱
 - 잘 모르는 API: 응답 구조가 불확실하면 resp.json()을 그대로 반환하고 주석으로 명시하세요.
-- 공공데이터포털(data.go.kr) 등 기관 API: 서비스마다 엔드포인트가 다르므로 반드시 need_info로 아래 두 가지를 받으세요. 절대 URL이나 파라미터를 추측하지 마세요.
-  1) 전체 Operation URL (Base URL + Operation 경로 포함)
-     예: https://apis.data.go.kr/1160100/service/GetStockSecuritiesInfoService/getStockPriceInfo
-     {"key":"API_ENDPOINT_URL","label":"호출할 API의 전체 URL을 입력해주세요 (Operation 경로까지 포함, 예: https://apis.data.go.kr/.../getXxxInfo)","help":"활용 가이드 문서 또는 data.go.kr 상세 페이지의 Operation URL","link":"https://www.data.go.kr","where_used":"HTTP 요청 URL"}
-  2) 필수 요청 파라미터 목록 (활용 가이드에 명시된 required 파라미터)
-     {"key":"API_REQUIRED_PARAMS","label":"API 필수 파라미터 목록을 입력해주세요 (예: basDt=기준일자, itmsNm=종목명)","help":"활용 가이드 문서의 요청 변수(Request Parameter) 표에서 필수 항목 확인","link":"","where_used":"쿼리스트링 파라미터"}
+- 공공데이터포털(data.go.kr) 등 기관 API: 서비스마다 엔드포인트가 다르므로, 아직 제공받지 않은 경우에만 need_info로 Operation URL을 요청하세요. 절대 URL을 추측하지 마세요.
+  {"key":"API_ENDPOINT_URL","label":"호출할 API의 전체 URL을 입력해주세요 (Operation 경로까지 포함, 예: https://apis.data.go.kr/.../getXxxInfo)","help":"활용 가이드 문서 또는 data.go.kr 상세 페이지의 Operation URL","link":"https://www.data.go.kr","where_used":"HTTP 요청 URL"}
+  - API_ENDPOINT_URL이 이미 제공된 정보에 있으면 바로 Step 3(create_tool)으로 진행하세요. 다시 묻지 마세요.
   - 인증키는 serviceKey 파라미터로 전달하며, URL 인코딩된 키를 그대로 사용하세요.
+  - 요청 파라미터는 해당 API에 대한 지식을 바탕으로 코드에 직접 반영하세요. 파라미터를 별도로 물어보지 마세요.
 - resp.json()을 그대로 반환하는 것은 허용되나, 사용자에게 유용한 필드를 추출해서 반환하는 것을 우선으로 하세요
 - 존재하지 않는 필드를 .get()으로 추출하거나, 구조를 임의로 가정하지 마세요
 - API 응답에서 오류 여부를 먼저 확인하고(status code, error 필드 등) HTTPException으로 처리하세요.
