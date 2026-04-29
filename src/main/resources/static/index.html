@@ -579,10 +579,7 @@
         div.className = 'tool-item' + (String(t.id) === String(selectedToolId) ? ' active' : '');
         div.onclick = () => selectTool(t.id);
 
-        const isDynamic = String(t.id || '').startsWith('dyn-');
-        const deleteBtn = isDynamic
-          ? `<button class="ghost" style="padding:6px 10px;font-size:.8rem" onclick="event.stopPropagation(); deleteDynamicTool('${escapeJs(t.name)}')">삭제</button>`
-          : '';
+        const deleteBtn = `<button class="ghost" style="padding:6px 10px;font-size:.8rem;color:var(--bad);border-color:var(--bad)" onclick="event.stopPropagation(); deleteDynamicTool('${escapeJs(t.name)}')">삭제</button>`;
 
         div.innerHTML = `
           <div class="tool-row">
