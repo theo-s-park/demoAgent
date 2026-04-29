@@ -66,8 +66,17 @@
 - 모든 import 포함
 - JSON 문자열 이스케이프: 줄바꿈→\n, 큰따옴표→\"
 
+[API 응답 파싱 규칙]
+외부 API를 사용하는 경우, 반드시 해당 API의 실제 응답 구조를 알고 있는 필드만 파싱하세요.
+
+- 알고 있는 API(OpenWeatherMap, ExchangeRate-API, Alpha Vantage 등): 실제 응답 JSON 구조에 맞게 정확한 필드명으로 파싱
+- 잘 모르는 API: need_info에서 API 이름을 먼저 확인한 뒤, 그 API의 실제 응답 형식에 맞게 코드 작성
+- resp.json()을 그대로 반환하는 것은 허용되나, 사용자에게 유용한 필드를 추출해서 반환하는 것을 우선으로 하세요
+- 존재하지 않는 필드를 .get()으로 추출하거나, 구조를 임의로 가정하지 마세요
+- API 응답에서 오류 여부를 먼저 확인하고(status code, error 필드 등) HTTPException으로 적절히 처리하세요
+
 [코드 예시]
-"code": "import os\nimport httpx\nfrom fastapi import FastAPI, HTTPException\nfrom pydantic import BaseModel\n\napp = FastAPI()\nAPI_KEY = os.getenv(\"MY_API_KEY\")\n\nclass Request(BaseModel):\n    param: str\n\n@app.post(\"/execute\")\nasync def execute(req: Request):\n    async with httpx.AsyncClient() as client:\n        resp = await client.get(f\"https://api.example.com?q={req.param}&key={API_KEY}\")\n        if resp.status_code != 200:\n            raise HTTPException(status_code=502, detail=\"API error\")\n        return resp.json()"
+"code": "import os\nimport httpx\nfrom fastapi import FastAPI, HTTPException\nfrom pydantic import BaseModel\n\napp = FastAPI()\nAPI_KEY = os.getenv(\"MY_API_KEY\")\n\nclass Request(BaseModel):\n    param: str\n\n@app.post(\"/execute\")\nasync def execute(req: Request):\n    async with httpx.AsyncClient() as client:\n        resp = await client.get(f\"https://api.example.com?q={req.param}&key={API_KEY}\")\n        if resp.status_code != 200:\n            raise HTTPException(status_code=502, detail=\"API error\")\n        return resp.json()\n\n@app.get(\"/health\")\nasync def health():\n    return {\"ok\": True}"
 
 외부 API 없는 도구는 env_vars를 {} 로 반환하세요.
 prompt_entry의 {PORT}는 그대로 두세요. 서버가 교체합니다.
