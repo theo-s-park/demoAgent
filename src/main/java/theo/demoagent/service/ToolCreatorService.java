@@ -333,13 +333,15 @@ public class ToolCreatorService {
             String os = System.getProperty("os.name", "").toLowerCase();
             ProcessBuilder pb;
             if (os.contains("win")) {
-                pb = new ProcessBuilder("cmd", "/c",
-                        "for /f \"tokens=5\" %a in ('netstat -aon ^| findstr /R \":" + port + " \" ^| findstr LISTENING') do taskkill /F /PID %a");
+                String script = String.format(
+                    "$p = (Get-NetTCPConnection -LocalPort %d -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess; if ($p) { Stop-Process -Id $p -Force }",
+                    port);
+                pb = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-Command", script);
             } else {
                 pb = new ProcessBuilder("sh", "-c", "lsof -ti :" + port + " | xargs -r kill -9");
             }
             pb.redirectErrorStream(true);
-            pb.start().waitFor(3, java.util.concurrent.TimeUnit.SECONDS);
+            pb.start().waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
             log.info("[kill-port] killed process on port={}", port);
         } catch (Exception e) {
             log.warn("[kill-port] port={} error: {}", port, e.toString());

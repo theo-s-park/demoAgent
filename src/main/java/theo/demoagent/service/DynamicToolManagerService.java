@@ -126,24 +126,23 @@ public class DynamicToolManagerService {
     private void killByPort(int port, Consumer<AgentEvent> emit) {
         if (port <= 0) return;
         try {
-            // Check if port is already free
             try (ServerSocket ignored = new ServerSocket(port)) {
-                return; // port is free, nothing to kill
-            } catch (IOException ignored) {
-                // port occupied — proceed to kill
-            }
+                return; // already free
+            } catch (IOException ignored) {}
 
             String os = System.getProperty("os.name", "").toLowerCase();
             ProcessBuilder pb;
             if (os.contains("win")) {
-                pb = new ProcessBuilder("cmd", "/c",
-                        "for /f \"tokens=5\" %a in ('netstat -aon ^| findstr /R \":" + port + " \" ^| findstr LISTENING') do taskkill /F /PID %a");
+                // PowerShell: find PID listening on port and kill it
+                String script = String.format(
+                    "$p = (Get-NetTCPConnection -LocalPort %d -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess; if ($p) { Stop-Process -Id $p -Force }",
+                    port);
+                pb = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-Command", script);
             } else {
                 pb = new ProcessBuilder("sh", "-c", "lsof -ti :" + port + " | xargs -r kill -9");
             }
             pb.redirectErrorStream(true);
-            Process proc = pb.start();
-            proc.waitFor(3, TimeUnit.SECONDS);
+            pb.start().waitFor(5, TimeUnit.SECONDS);
             log.info("[kill-port] port={} killed", port);
             emit.accept(AgentEvent.step("포트 " + port + " 프로세스 강제 종료 완료"));
         } catch (Exception e) {
