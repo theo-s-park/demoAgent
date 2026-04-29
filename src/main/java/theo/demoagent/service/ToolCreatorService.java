@@ -175,6 +175,7 @@ public class ToolCreatorService {
             dynamicToolRepository.save(existing);
             log.info("[tool-update] persisted name={} port={} new_pid={}", toolName, port, proc.pid());
 
+            emitToolSnapshot(emit);
             emit.accept(AgentEvent.finalAnswer(toolName + " 도구가 업데이트되어 재시작되었습니다 (port " + port + ")."));
             return;
         }
@@ -218,6 +219,7 @@ public class ToolCreatorService {
             } catch (Exception ignored) {}
             log.info("[tool-create] persisted name={} port={} pid={}", toolName, port, saved.getPid());
 
+            emitToolSnapshot(emit);
             emit.accept(AgentEvent.finalAnswer(toolName + " 도구가 활성화되었습니다 (port " + port + "). 이제 에이전트에게 질문해보세요!"));
         }
     }
@@ -536,6 +538,34 @@ public class ToolCreatorService {
         int count = 0;
         while (m.find()) count++;
         return count;
+    }
+
+    private void emitToolSnapshot(Consumer<AgentEvent> emit) {
+        try {
+            List<DynamicTool> tools = dynamicToolRepository.findAll();
+            if (tools.isEmpty()) {
+                log.info("[tool-snapshot] 동적 도구 없음");
+                emit.accept(AgentEvent.step("[현재 도구 목록] 동적 도구 없음"));
+                return;
+            }
+            StringBuilder sb = new StringBuilder();
+            for (DynamicTool t : tools) {
+                boolean alive = isPortOccupied(t.getPort());
+                sb.append(String.format("\n  %-30s port=%-5d %s", t.getToolName(), t.getPort(), alive ? "● 실행중" : "○ 응답없음"));
+            }
+            log.info("[tool-snapshot]{}", sb);
+            emit.accept(AgentEvent.step("[현재 도구 목록]" + sb));
+        } catch (Exception e) {
+            log.warn("[tool-snapshot] failed: {}", e.toString());
+        }
+    }
+
+    private boolean isPortOccupied(int port) {
+        try (ServerSocket ss = new ServerSocket(port)) {
+            return false;
+        } catch (IOException e) {
+            return true;
+        }
     }
 
     private int findFreePort() {

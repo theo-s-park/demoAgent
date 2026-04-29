@@ -13,6 +13,7 @@ import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -87,6 +88,7 @@ public class DynamicToolManagerService {
         }
 
         log.info("[tool-delete] done displayName={}", name);
+        emitToolSnapshot(emit);
         emit.accept(AgentEvent.finalAnswer("'" + name + "' 도구가 삭제되었습니다."));
     }
 
@@ -180,6 +182,34 @@ public class DynamicToolManagerService {
      * "N. displayName" 또는 "- displayName" 블록을 프롬프트에서 제거.
      * 다음 도구 블록 시작 또는 [응답 형식] 전까지를 한 블록으로 간주.
      */
+    private void emitToolSnapshot(Consumer<AgentEvent> emit) {
+        try {
+            List<DynamicTool> tools = repository.findAll();
+            if (tools.isEmpty()) {
+                log.info("[tool-snapshot] 동적 도구 없음");
+                emit.accept(AgentEvent.step("[현재 도구 목록] 동적 도구 없음"));
+                return;
+            }
+            StringBuilder sb = new StringBuilder();
+            for (DynamicTool t : tools) {
+                boolean alive = isPortOccupied(t.getPort());
+                sb.append(String.format("\n  %-30s port=%-5d %s", t.getToolName(), t.getPort(), alive ? "● 실행중" : "○ 응답없음"));
+            }
+            log.info("[tool-snapshot]{}", sb);
+            emit.accept(AgentEvent.step("[현재 도구 목록]" + sb));
+        } catch (Exception e) {
+            log.warn("[tool-snapshot] failed: {}", e.toString());
+        }
+    }
+
+    private boolean isPortOccupied(int port) {
+        try (ServerSocket ss = new ServerSocket(port)) {
+            return false;
+        } catch (IOException ignored) {
+            return true;
+        }
+    }
+
     static String removeToolBlock(String prompt, String displayName) {
         if (prompt == null || prompt.isBlank()) return prompt;
 
