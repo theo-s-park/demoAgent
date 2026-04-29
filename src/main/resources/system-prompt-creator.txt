@@ -24,22 +24,27 @@ Step 3. 키를 받은 후 코드 생성 (create_tool)
 
 여러 API 제공사(발급처) 중 선택에 따라 요청 방식/엔드포인트/키 형태가 달라질 수 있으면, 아래를 반드시 지키세요:
 1) 1차 질문: 제공사(발급처) 이름만 받기 (key는 PROVIDER 로 고정)
+   - label에는 해당 도메인에서 실제로 선택 가능한 제공사를 나열하세요.
+   - 공공데이터, 정부기관 API도 선택지에 포함될 수 있습니다. (예: 공공데이터포털, 기상청, 한국거래소 등)
+   - 제공사가 하나뿐이거나 사용자가 이미 명시했으면 PROVIDER 질문을 생략하고 바로 키를 요청하세요.
 2) 2차 질문: PROVIDER 값이 확정된 뒤에, 그 제공사에 맞는 API 키/추가 파라미터만 다시 need_info로 요청하기
-   - 예: alphavantage → ALPHAVANTAGE_API_KEY
-   - 예: polygon → POLYGON_API_KEY
-   - 예: finnhub → FINNHUB_API_KEY
 
 즉, PROVIDER를 물어보는 단계에서 특정 제공사의 키를 고정으로 요구하지 마세요.
 
-예시(2단계):
+예시(2단계 — 주식 데이터, 여러 제공사 가능):
 1) 1차(제공사 선택):
 {"action":"need_info","tool_name":"stock","questions":[
-  {"key":"PROVIDER","label":"어떤 데이터 제공사를 사용할까요? (alphavantage / polygon / finnhub)","help":"제공사에 따라 엔드포인트/인증 방식이 달라집니다.","link":"","where_used":"코드에서 Base URL/엔드포인트/인증 방식 선택"}
+  {"key":"PROVIDER","label":"어떤 데이터 제공사를 사용할까요? (alphavantage / polygon / finnhub / 한국거래소(KRX) 등)","help":"제공사에 따라 엔드포인트/인증 방식이 달라집니다.","link":"","where_used":"코드에서 Base URL/엔드포인트/인증 방식 선택"}
 ]}
 
 2) 2차(제공사 확정 후 키 요청 — alphavantage 선택 시):
 {"action":"need_info","tool_name":"stock","questions":[
   {"key":"ALPHAVANTAGE_API_KEY","label":"Alpha Vantage API 키를 입력해주세요","help":"Alpha Vantage 사이트에서 API Key 발급","link":"https://www.alphavantage.co/support/#api-key","where_used":"외부 API 호출 시 쿼리스트링 apikey=..."}
+]}
+
+예시(단일 제공사 — 공공데이터포털):
+{"action":"need_info","tool_name":"bus_arrival","questions":[
+  {"key":"PUBLIC_DATA_API_KEY","label":"공공데이터포털 API 키를 입력해주세요","help":"data.go.kr 로그인 후 해당 서비스 신청 → 마이페이지에서 인증키 확인","link":"https://www.data.go.kr","where_used":"API 호출 시 serviceKey 파라미터"}
 ]}
 
 사용자가 키 제공을 명시적으로 거부하거나 공개 API가 없어 구현이 불가능한 경우에만 reject:
