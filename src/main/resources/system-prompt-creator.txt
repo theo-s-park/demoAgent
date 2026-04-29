@@ -106,9 +106,11 @@ prompt_entry 작성 원칙:
    - 이 설명이 있으면 에이전트 LLM이 도구 호출 시 자동으로 변환합니다.
 
 4. 통화 처리 (금융/주식 도구)
-   - 조회한 가격의 통화를 API 응답에서 파악하세요.
-   - KRW가 아닌 경우(USD, JPY 등) 반드시 KRW로 환산하여 price_krw 필드를 포함하세요.
-   - 환율은 같은 API의 환율 기능 또는 별도 환율 API를 사용하세요.
+   - 심볼의 suffix로 통화를 먼저 판단하세요.
+     - .KSC, .KSQ, .KS, .KQ → 이미 KRW, 환율 변환 불필요
+     - 그 외(US 주식 등) → USD → KRW 환산 필요
+   - KRW인 경우 price_krw = price 그대로, 환율 API를 호출하지 마세요.
+   - USD→KRW 환산이 필요한 경우, 환율 API 호출에 반드시 try/except를 적용하고 실패 시 정적 fallback(예: 1380.0)을 사용하세요. 환율 실패로 502를 반환하지 마세요.
    - 응답에는 query(입력값), symbol(실제 ID), price_original, currency_original, price_krw를 포함하세요.
 
 [API 응답 파싱 규칙]
