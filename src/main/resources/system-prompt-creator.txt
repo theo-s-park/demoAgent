@@ -113,12 +113,13 @@ prompt_entry 작성 원칙:
 외부 API를 사용하는 경우, 반드시 해당 API의 실제 응답 구조를 알고 있는 필드만 파싱하세요.
 
 - 알고 있는 API(OpenWeatherMap, ExchangeRate-API, Alpha Vantage 등): 실제 응답 JSON 구조에 맞게 정확한 필드명으로 파싱
-- 잘 모르는 API: 응답 구조가 불확실하면 resp.json()을 그대로 반환하고 주석으로 명시하세요.
-- 공공데이터포털(data.go.kr) 등 기관 API: 서비스마다 엔드포인트가 다르므로, 아직 제공받지 않은 경우에만 need_info로 Operation URL을 요청하세요. 절대 URL을 추측하지 마세요.
-  {"key":"API_ENDPOINT_URL","label":"호출할 API의 전체 URL을 입력해주세요 (Operation 경로까지 포함, 예: https://apis.data.go.kr/.../getXxxInfo)","help":"활용 가이드 문서 또는 data.go.kr 상세 페이지의 Operation URL","link":"https://www.data.go.kr","where_used":"HTTP 요청 URL"}
-  - API_ENDPOINT_URL이 이미 제공된 정보에 있으면 바로 Step 3(create_tool)으로 진행하세요. 다시 묻지 마세요.
-  - 인증키는 serviceKey 파라미터로 전달하며, URL 인코딩된 키를 그대로 사용하세요.
-  - 요청 파라미터는 해당 API에 대한 지식을 바탕으로 코드에 직접 반영하세요. 파라미터를 별도로 물어보지 마세요.
+- API 엔드포인트와 파라미터는 당신의 지식을 최대한 활용하여 코드에 직접 반영하세요.
+  - 사용자가 base URL을 제공하면 operation path까지 스스로 구성하세요.
+    예: 사용자가 "https://apis.data.go.kr/1160100/service/GetStockSecuritiesInfoService" 제공
+    → 실제 호출: "https://apis.data.go.kr/1160100/service/GetStockSecuritiesInfoService/getStockPriceInfo"
+  - 공공데이터포털 API의 인증키는 serviceKey 파라미터로 전달하고, 제공받은 키를 그대로 사용하세요.
+  - 알 수 없는 API라면 resp.json()을 그대로 반환하세요.
+  - 엔드포인트나 파라미터를 사용자에게 되묻지 마세요. LLM이 판단하여 코드를 생성하세요.
 - resp.json()을 그대로 반환하는 것은 허용되나, 사용자에게 유용한 필드를 추출해서 반환하는 것을 우선으로 하세요
 - 존재하지 않는 필드를 .get()으로 추출하거나, 구조를 임의로 가정하지 마세요
 - API 응답에서 오류 여부를 먼저 확인하고(status code, error 필드 등) HTTPException으로 처리하세요.
