@@ -698,21 +698,24 @@
 
     // ── 도구 추가 ────────────────────────────────────────────────
     let currentDescription = '';
+    let accumulatedAnswers = {};
 
     document.getElementById('tool-desc').addEventListener('keydown', e => { if (e.key === 'Enter') startCreate(); });
 
     async function startCreate() {
       currentDescription = document.getElementById('tool-desc').value.trim();
       if (!currentDescription) return;
+      accumulatedAnswers = {};
       await sendCreateRequest(currentDescription, {});
     }
 
     async function submitAnswers() {
       const inputs = document.querySelectorAll('#form-fields input');
-      const answers = {};
-      inputs.forEach(input => { answers[input.dataset.question] = input.value.trim(); });
+      const newAnswers = {};
+      inputs.forEach(input => { newAnswers[input.dataset.question] = input.value.trim(); });
+      Object.assign(accumulatedAnswers, newAnswers);
       document.getElementById('creator-form').style.display = 'none';
-      await sendCreateRequest(currentDescription, answers);
+      await sendCreateRequest(currentDescription, accumulatedAnswers);
     }
 
     function cancelCreate() {
